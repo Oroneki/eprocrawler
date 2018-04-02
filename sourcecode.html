@@ -1,0 +1,718 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="iso-8859-1"?>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=9; text/html; charset=iso-8859-1" />
+<title>e-Processo - 
+001.045.093-92
+</title>
+
+   <link href="/css/estilos_popup.css" rel="stylesheet" type="text/css" />
+	<script language="javascript" src="/js/Dialog.js" type="text/javascript"></script>
+   <script language="javascript" src="/js/Geral1.js" type="text/javascript"></script>
+
+</head>
+
+<!--
+<body	onLoad="javascript:if (opener && opener.blockEvents) opener.blockEvents()"
+		onBeforeUnload="javascript:if (opener && opener.unblockEvents) { opener.unblockEvents();}">
+-->
+<body>
+
+<table align="right">
+  <tr>
+   <th>
+    <a id="ajuda" href="#" onclick="exibirHelp('apresentarpagina','/ControleMultiplosDocumentos.asp')">Ajuda
+    </a>
+   </th>
+  </tr>
+</table>
+
+	<div class='overlay_alphacube' style='position:absolute;background-color:white;top:0px;left:0px;z-index:10000;display:none;' id='DIV_MENSAGEM_AJAX'></div>
+   <div id="divMensagemAguarde" style="visibility: hidden; position: absolute; background:white;z-index:100001; left: 50%; top: 50%; margin-left: 40px; margin-top: -40px; width: 20%;">
+   <!--&nbsp;&nbsp;Processando...&nbsp;&nbsp;-->
+	<table border="0" width="100%" cellpadding="0" cellspacing="0" align="center">
+		<tr>
+			<td style="background: transparent url(/img/diversos/left-top.gif) no-repeat 0 0; width:10px; height:25px;"></td>
+			<td style="background: transparent url(/img/diversos/top-middle.gif) repeat-x 0 0; height:25px;"></td>
+			<td style="background: transparent url(/img/diversos/right-top.gif) no-repeat 0 0; width:10px; height:25px;"></td>
+		</tr>
+		<tr>
+			<td style="background: transparent url(/img/diversos/frame-left.gif) repeat-y top left; width:7px;"></td>
+			<td>
+				<table border="0" width="100%">
+					<tr>	<td align="center" style="font-size: 11px; font-family: Verdana;"><div id="divTexto">Aguarde. Processando...</div>
+						</td>
+					</tr>
+					<tr><td align="center"><img src="/img/diversos/progress.gif"></td></tr>
+				</table>
+			</td>
+			<td style="background: transparent url(/img/diversos/frame-right.gif) repeat-y top right; width:7px;"></td>
+		</tr>
+		<tr>
+			<td style="background: transparent url(/img/diversos/bottom-left-c.gif) no-repeat 0 0; width:10px; height:7px;"></td>
+			<td style="background: transparent url(/img/diversos/bottom-middle.gif) repeat-x 0 0; height:7px;"></td>
+			<td style="background: transparent url(/img/diversos/bottom-right-c.gif) no-repeat 0 0; width:10px; height:7px;"></td>
+		</tr>
+	</table>
+   </div>
+
+	<script src="/js/Geral1.js" type="text/javascript" language="javascript"></script>
+	<script type="text/javascript" src="/js/jquery-1.11.1.min.js"></script>
+	<script type="text/javascript" src="/js/jquery.dataTables-1.11.1.min.js"></script>
+
+	<script>
+		var gsExisteDocNaoPg;
+		var gaDocumentos;
+		var lnSessao;
+		var lnTamDocAtivarSessao;
+        var lnTemLink=0;
+        var lnUltimaParte=1;
+		
+		function atualizarPartes(lbChkNpag){
+            if ( (lbChkNpag) || (lnTemLink > 0)) {
+			//Limpa dataTable e Accordion
+			$("table[id*='arquivos']").dataTable().fnDestroy(); 
+			$("div[id*='acPartesDocumentos']").empty();
+			//Recalcula e monta as partes
+			montarPartes();
+                lnTemLink = 0;
+            }
+		}
+		
+		function obterDocumentos(){
+
+			var lsNumeroProcesso = $("#hidNumeroProcesso").val();
+			var lsNumeroEquipeAtividade = $("#hidNumeroEquipeAtividade").val();
+			var laDocSelecionados = "";
+			var lsOperacao = $("#hidOperacao").val();
+			var lsEscopo = $("#hidEscopo").val();
+			var lsSituacaoProcesso = $("#hidSituacaoProcesso").val();	
+
+			var lsURL = "ControleMultiplosDocumentos.asp?psAcao=obterDocumentos&psNumeroProcesso=" + lsNumeroProcesso + "&paDocSelecionados=" +
+				laDocSelecionados + "&psNumeroEquipeAtividade=" + lsNumeroEquipeAtividade + "&psOperacao=" + lsOperacao + "&psEscopo=" + lsEscopo + 
+				"&psSituacaoProcesso=" + lsSituacaoProcesso;
+
+			requisitarXmlHttp(lsURL, "retornoObterDocumentos(pbRetorno)", "Recuperando lista de documentos... \nDependendo da quantidade, o processamento poderá demorar alguns minutos");	
+		}
+		
+		function retornoObterDocumentos(pbRetorno){
+			if (pbRetorno){
+				gsExisteDocNaoPg='N';
+				gaDocumentos = new Array();
+				var retornoXML = goXmlDoc.getElementsByTagName("raiz");
+				$(retornoXML).find("linha").each(function(i, linha) {
+					var laDoc = new Array();
+					laDoc.push($(linha).find("coluna[nome='Numero_Documento']").text());
+					laDoc.push($(linha).find("coluna[nome='Nome']").text());
+					
+					laDoc.push($(linha).find("coluna[nome='Pagina_Inicial']").text());
+					laDoc.push($(linha).find("coluna[nome='Pagina_Final']").text());
+					
+					var lnTamanhoDocumento = $(linha).find("coluna[nome='Tamanho_Documento']").text();
+					if (lnTamanhoDocumento!=0){ //Quando vazio vem zero
+						lnTamanhoDocumento = (lnTamanhoDocumento/1024)/1024;
+					}
+					laDoc.push(new Number(new Number(lnTamanhoDocumento).toFixed(3))); 
+					
+					var lnDocNaoPaginavel = $(linha).find("coluna[nome='Numero_Documento_Nao_Paginavel']").text();
+					laDoc.push(lnDocNaoPaginavel);
+					if (lnDocNaoPaginavel!=0){ //Quando vazio vem zero
+						gsExisteDocNaoPg = 'S'; 
+					}
+					
+					var lnTamanhoDocumentoNaoPaginavel = $(linha).find("coluna[nome='Tamanho_Documento_Nao_Paginavel']").text();
+					if (lnTamanhoDocumentoNaoPaginavel!=0){//Quando vazio vem zero
+						lnTamanhoDocumentoNaoPaginavel = (lnTamanhoDocumentoNaoPaginavel/1024)/1024;
+					}
+					laDoc.push(new Number(new Number(lnTamanhoDocumentoNaoPaginavel).toFixed(3))); 
+					
+					laDoc.push($(linha).find("coluna[nome='Numero_Tipo_Documento']").text());
+					
+					gaDocumentos.push(laDoc);	
+				});
+						
+				if (gsExisteDocNaoPg == 'S'){
+                    $("#divCheckNaoPaginavel").html("<input type='checkbox' id='chkNaoPaginavel' name='chkNaoPaginavel'  onclick='atualizarPartes(true);' checked>Incluir arquivo(s) não paginável(eis) [ formato rar ou zip ]</input>");                
+					$("#divCheckNaoPaginavel").show();
+				} else {
+                    $("#divCheckNaoPaginavel").html("<input type='checkbox' id='chkNaoPaginavel' name='chkNaoPaginavel'  onclick='atualizarPartes(true);'>Incluir arquivo(s) não paginável(eis) [ formato rar ou zip ]</input>");                                
+					$("#divCheckNaoPaginavel").hide();
+				}
+				document.getElementById("hidExisteDocNaoPaginavel").value = gsExisteDocNaoPg;
+				
+				montarPartes();
+			}
+		}
+		
+		function montarPartes(){
+//			alert("Montar Parte");
+			var lnTamanhoTotal=0;
+			var lnTamanhoParte=0;
+			var lnTamanhoDocumento=0;
+			var laDocumentosParte = new Array();
+			var lsIdsDocumentosParte="";
+			var lnNumeroParte = 0;
+            var lnQtDocumentoParte = 0;
+			var lnLimiteTamanhoParte = 250;
+			lnTamDocAtivarSessao= 1024;
+			var lnQtMaxDocumentosParteMultiplos = 500;
+			var lnTamanhoTotalDocumentos=0;
+			var laDocumentosUtilizados = gaDocumentos;
+			var lnPaginasDocumento = 0;
+			var lnPaginasBloco = 0;
+			
+			$.each(laDocumentosUtilizados,function(lnIndice,laDocumento){		
+                    if ($("#chkNaoPaginavel").prop("checked") == true) {
+                        lnTamanhoDocumento = laDocumento[4]+laDocumento[6]; //soma com o tamanho do arquivo não paginável, se não houver vem 0
+                        lnPaginasDocumento = laDocumento[3] - laDocumento[2] + 1;
+                    }else{
+                        lnTamanhoDocumento = laDocumento[4]; //caso checkbox "incluir arquivo não paginável" NÃO estiver marcado, não somar tamanho arquivo não paginável
+                        lnPaginasDocumento = laDocumento[3] - laDocumento[2] + 1;
+                    }
+                    if ((lnIndice != 0) && ((lnTamanhoParte + lnTamanhoDocumento > lnLimiteTamanhoParte) ||  (lnQtDocumentoParte >= lnQtMaxDocumentosParteMultiplos) || (lnPaginasBloco + lnPaginasDocumento >= 10000))){ //Formou uma parte					
+                        lnNumeroParte += 1;				
+                        montarTabela(lnNumeroParte, lsIdsDocumentosParte, lnTamanhoParte, laDocumentosParte, lnQtDocumentoParte);						
+                        lnUltimaParte = lnNumeroParte;
+                        //Reinicia as variáveis da parte
+                        lnTamanhoParte = 0;
+                        lnQtDocumentoParte = 0;
+                        lsIdsDocumentosParte = "";
+                        laDocumentosParte = new Array();                                                    
+                        lnPaginasBloco = 0;
+                    }
+				lnTamanhoTotal += lnTamanhoDocumento;
+
+				lnTamanhoParte += lnTamanhoDocumento;
+                lnPaginasBloco += lnPaginasDocumento;
+				
+				laDocumentosParte.push(obterArrayDocumento(laDocumento));
+                    //como os arquivos não pagináveis não aparecem na lista, foram acrescentados somente os Ids para serem incluídos no ZIP
+                    if ($("#chkNaoPaginavel").prop("checked") == true) {
+                        //caso checkbox "incluir arquivo não paginável" estiver marcado, incluir para baixar Arquivo+Termo 
+                    lsIdsDocumentosParte += ((lsIdsDocumentosParte != "") ? "|" :"") + laDocumento[0] + ((laDocumento[5] != "") ? "|" + laDocumento[5] : "");
+                    lnQtDocumentoParte = lnQtDocumentoParte + ((laDocumento[5] != "") ? 2 : 1);
+                    }else{
+                        //caso checkbox "incluir arquivo não paginável" NÃO estiver marcado, incluir para baixar somente o Termo                     
+                        lsIdsDocumentosParte += ((lsIdsDocumentosParte != "") ? "|" :"") + laDocumento[0];                     
+                        lnQtDocumentoParte++;
+                     }
+				//Trata os últimos documentos!!!!
+				if (lnIndice == laDocumentosUtilizados.length-1){
+					lnNumeroParte += 1;
+					montarTabela(lnNumeroParte, lsIdsDocumentosParte, lnTamanhoParte, laDocumentosParte, lnQtDocumentoParte);
+                    lnUltimaParte = lnNumeroParte;
+				}
+			})
+			
+			$("#txTamanhoTotal").html(lnTamanhoTotal.toFixed(3).replace('.',','));
+			
+			//Abre e fecha as partes
+			
+			alterarImagemH3();
+			//Chama o metódo que realiza o controle sobre a expiração da sessão
+			expirarSessao(lnTamanhoTotal);
+            //Tornar Fisico e Equipe papel: Para o caso do usuário pedir para montar novamente
+            if (($("#hidOperacao").val()=='T') && ($("#hidProcessoEquipePapel").val() != 'S')) {
+                $("#btTornarFisico").prop('disabled', true);                    
+            }            
+            // Habilitar os botões após montar as partes
+			habilitarBotoesPlay();           
+		}
+		
+		function obterArrayDocumento(laDocumento){
+			var aDoc = new Array();
+			aDoc.push(laDocumento[1]); //Nome documento
+			aDoc.push(laDocumento[2]); //Pagina inicial
+			aDoc.push(laDocumento[3]); //Pagina final
+            if ($("#chkNaoPaginavel").prop("checked") == true) {            
+			aDoc.push((laDocumento[4]+laDocumento[6]).toFixed(3).replace('.',',')+" MB"); //Tamanho Doc + Tamanho Doc não paginável
+            }else{
+                aDoc.push((laDocumento[4]).toFixed(3).replace('.',',')+" MB"); //Tamanho Doc + Tamanho Doc não paginável            
+            }
+			//Palavra Chave (passa o Numero, Nome e Numero Tipo Documento)
+			aDoc.push("<img src='/img/diversos/palavraChave.png' border='0' align='center' onclick=\"acessarPalavrasChaveDocumento('" + laDocumento[0] + "','" + laDocumento[1] + "','" + laDocumento[7] + "');\" title='Palavras-Chave' class='clicavel'>");
+			return aDoc;
+		}
+		
+		function montarTabela(lnNumeroParte, lsIdsDocumentosParte, lnTamanhoParte, laDocumentosParte, lnQtDocumentoParte){
+			
+			$("#conteudoPartes").append("<div id='acPartesDocumentos"+lnNumeroParte+"' style='margin:0 auto;width: 737px;'></div>");
+			$("#acPartesDocumentos"+lnNumeroParte).append("<h3 name='parte"+lnNumeroParte+"' style='width:700px' id='"+lnNumeroParte+"' tamanhoParte='"+ lnTamanhoParte +"' idsDocumentosParte='"+ lsIdsDocumentosParte+"'><img src='img/diversos/linhaFechada.gif' border='0' align='left' name='imgParte"+ lnNumeroParte+"' id='imgParte"+lnNumeroParte+"' title='Clique aqui para abrir a relação dos documentos'><div class='multiplos' id='cabecalhoParte" + lnNumeroParte + "' style='margin:0 auto;width: 700;'>&nbsp;&nbsp;" + lnNumeroParte + "a. Parte - " + lnTamanhoParte.toFixed(3).replace('.',',') + " MB - "+ lnQtDocumentoParte +" Documento(s)</div></h3>");
+			$("#acPartesDocumentos"+lnNumeroParte).append("<div id='arquivosParte"+lnNumeroParte+"' name='arquivosParte"+lnNumeroParte+"' style='margin: 0 auto; display:none'></div>");
+			$("#arquivosParte"+lnNumeroParte).append("<table width='100%' class='listagem' id='arquivos"+lnNumeroParte+"'></table>");
+			$("#arquivos"+lnNumeroParte).dataTable( {
+				"aoColumns": [
+						{ "sTitle": "Documento", "sWidth": "310px", "sClass": "alignLeft"},
+						{ "sTitle": "P&aacute;g. Inicial", "sWidth": "76px", "sClass": "alignRight"},
+						{ "sTitle": "P&aacute;g. Final", "sWidth": "76px", "sClass": "alignRight"},
+						{ "sTitle": "Tamanho", "sWidth": "63px", "sClass": "alignRight"},
+						{ "sTitle": "", "sWidth": "29px", "sClass": "alignCenter"}	],
+				"aaData": laDocumentosParte,
+				"bPaginate": false, 				// Indica se o dataTable terá paginação
+//				"sPaginationType": "full_numbers",	//"two_button", "full_numbers"	// Define o formato dos botões de navegação pelas páginas do grid
+//				"iDisplayLength": 5,				// Quantidade de registros por página
+				"bLengthChange": false,				// Indica se o usuário pode alterar a quantidade de registros por página
+				"bInfo": false,						// Informa se serão mostradas no rodapé do grid as informações sobre a quantidade de registros que estão sendo exibidas
+				"bServerSide": false,				// FALSE - A paginação é feita localmente, via script do componente; TRUE - Quando os dados já vierem paginados do banco
+				"bFilter": false,
+				"bSort": false,
+				"scrollY": "180px",
+				"scrollCollapse": false,				
+				"sWidth": "100%",
+				"oLanguage": {
+						"sProcessing": "Carregando ...",
+						"sZeroRecords": "Nenhum registro retornado.",
+						"sInfo": "_TOTAL_ registros",
+						"sInfoEmpty": "",
+						"sLengthMenu": "Exibir _MENU_ registros por p&aacute;gina",
+						"oPaginate": {
+							"sPrevious": "<",
+							"sNext": ">",
+							"sFirst": "<<",
+							"sLast": ">>"
+						}
+				}				
+			} );
+		}
+	
+		//Troca imagem das partes + -
+		function alterarImagemH3(){
+			$("h3").click(function(){
+				var lnId = $(this).attr("id");
+				var imagem = $("#imgParte"+lnId).attr("src");
+				if (imagem.indexOf("img/diversos/linhaAberta.gif")>=0){
+						$("#imgParte"+lnId).attr("src","img/diversos/linhaFechada.gif");
+						$("#imgParte"+lnId).attr("title","Clique aqui para abrir a relação dos documentos");
+						$("#arquivosParte"+lnId).hide();
+				}else{
+						$("#imgParte"+lnId).attr("src","img/diversos/linhaAberta.gif");
+						$("#imgParte"+lnId).attr("title","Clique aqui para fechar a relação dos documentos");
+						$("#arquivosParte"+lnId).show();
+						$("#arquivos"+lnId).DataTable().columns.adjust().draw();
+				}
+			});
+		}
+
+		function processarDocumentos(tipoExibicao, idParte){			
+			var lsNumeroProcesso = $("#hidNumeroProcesso").val();
+			var lsNumeroEquipeAtividade = $("#hidNumeroEquipeAtividade").val();
+			var lbIncluirDocNaoPaginavel = $("#chkNaoPaginavel").is(':checked');
+			var lbGerarPaginaMetaDados = $("#chkMetaDados").is(':checked');
+			var lbVersoBranco = $("#chkVersoBranco").is(':checked');
+			var laNumeroDocumento;
+			var lsRegistrarHistorico;
+			var lsOperacao= $("#hidOperacao").val();
+			var lsEscopo= $("#hidEscopo").val();
+			var lsCodigoOperacao;
+			var lsSituacaoProcesso = $("#hidSituacaoProcesso").val();	
+			var lsTamanhoParte;
+			var loChkNaoPaginavel = $("#chkNaoPaginavel");
+			var lbObterVersaoPesquisavel = $("#chkVersaoPesquisavel").is(':checked');
+
+			if ( tipoExibicao == "PDF" ){
+				if ( document.getElementById("hidExisteDocNaoPaginavel").value == 'S' ){
+					if ( lbIncluirDocNaoPaginavel ){
+						alert("Não é possível incluir arquivo não paginável no arquivo PDF.");
+						return false;
+					}
+				}
+			}
+			
+			//Ocultando as mensagens de erro
+			$("h3[name*=erro]").each(function(){
+				$(this).hide();
+			});
+			
+			//Ocultar imagem de aviso de erro
+			$("#img_aviso_erro").hide();
+
+			habilitarBotaoParar();
+			
+			//Calcula o Código da Operação
+			if (lsOperacao =='C'){
+				if (lsEscopo =='I'){
+					lsCodigoOperacao=8; //Cópia Integral do Processo
+				} else{
+					lsCodigoOperacao=112; //Cópia Parcial do Processo
+				}
+			} else if (lsOperacao =='I'){
+				if (lsEscopo =='I'){
+					if (document.getElementById("chkReimpressao").checked){
+						lsCodigoOperacao=21; //Reimpressão Integral do Processo Tornado Físico
+					}else{
+						lsCodigoOperacao=7; //Impressão Integral do Processo
+					}
+				} else {
+					lsCodigoOperacao=113; //Impressão Parcial do Processo
+				}
+			} else if (lsOperacao =='T'){
+				lsCodigoOperacao=21; //Copiar Processo para Tornar Físico
+			}
+			
+			//Verifica se é para gerar histórico (só na primeira parte)
+			if (idParte==1){
+				lsRegistrarHistorico='S';
+			} else {
+				lsRegistrarHistorico='N';
+			}
+			
+			//Pega os ids dos documentos da Parte corrente
+			laNumeroDocumento = $("h3[id="+idParte+"]").attr("idsDocumentosParte");
+
+			lsTamanhoParte = $("h3[id="+idParte+"]").attr("tamanhoParte");	
+			lsTamanhoParte = (new Number(lsTamanhoParte)).toFixed(3).replace('.',',');
+			
+			/*remontar o titulo de cada parte no accordion*/
+			$("#cabecalhoParte"+idParte).empty();
+			$("#cabecalhoParte"+idParte).append("&nbsp;&nbsp;" + idParte + "a. Parte - "+ lsTamanhoParte +" MB&nbsp;&nbsp;Processando, aguarde...&nbsp;&nbsp;&nbsp;<img src='img/diversos/progress.gif'>");
+			
+			lsQtPartes = $("h3[name^=parte]").length;
+			//Chama controle via ajax
+			$.ajax({
+				url:"ControleMultiplosDocumentos.asp",
+				type:"POST",
+				data:{
+						psAcao:"processarDocumentos",
+						psNumeroProcesso:lsNumeroProcesso,
+						paDocSelecionados:laNumeroDocumento,
+						psNumeroEquipeAtividade:lsNumeroEquipeAtividade,
+						psAcesso:tipoExibicao,
+						pbIncluirDocNaoPaginavelNoZip:lbIncluirDocNaoPaginavel,
+						psRegistrarHistorico:lsRegistrarHistorico,
+						pnOperacao:lsCodigoOperacao,
+						pbVersoBranco:lbVersoBranco,
+						pnIdParte:idParte,
+                        pnQtPartes:lsQtPartes,
+                        pbGerarPgMetaDados:lbGerarPaginaMetaDados,
+						pbObterVersaoPesquisavel:lbObterVersaoPesquisavel
+					 },
+				context:document.body,
+				async:true,
+				cache:false,
+				success: function(retorno){
+							retornoProcessarDocumentos(retorno, tipoExibicao, idParte, lsTamanhoParte);
+						}
+			});
+		}
+		
+		function habilitarBotoesPlay(){
+			//Habilitar botões e checks
+			$('#imgPdf').prop('disabled', false);
+			$('#imgPdf').attr("src","img/ico_pdf_play.png");
+			$('#imgPdf').toggleClass("clicavel");
+			
+			$('#imgZip').prop('disabled', false);
+			$('#imgZip').attr("src","img/ico_zip_play.png");
+			$('#imgZip').toggleClass("clicavel");
+			
+			$("input[id*='chk']").prop('disabled', false);
+			
+			//Desabilita botão Parar
+			$('#imgParar').prop('disabled', true);
+			$('#imgParar').attr("src","img/ico_stop_off.png");
+			$('#imgParar').toggleClass("clicavel");
+		}
+		
+		function habilitarBotaoParar(){
+			//desabilitar botões Lupa e Play e checks
+             desabilitarBotaoPlay();
+			
+			$("input[id*='chk']").prop('disabled', true);
+			
+			//habilitar botão Parar
+			$('#imgParar').prop('disabled', false);
+			$('#imgParar').attr("src","img/ico_stop.png");
+			$('#imgParar').toggleClass("clicavel");
+		}
+		
+		 function desabilitarBotaoPlay() {
+				//desabilitar botões Lupa e Play e checks
+			$('#imgPdf').prop('disabled', true);
+			$('#imgPdf').attr("src","img/ico_pdf_off.png");
+			$('#imgPdf').toggleClass("clicavel");
+			
+			$('#imgZip').prop('disabled', true);
+			$('#imgZip').attr("src","img/ico_zip_off.png");
+			$('#imgZip').toggleClass("clicavel");
+		}
+		
+		function pararProcessamento(){
+			//Desabilita botão Parar
+			$('#imgParar').prop('disabled', true);
+			$('#imgParar').attr("src","img/ico_stop_off.png");
+			
+			//Seta variável global
+			$("#hidPararProcessamento").val('True');
+			
+			alert("O processamento será interrompido após a conclusão da geração do agrupamento que está sendo executado no momento.");
+		}
+
+		function falhaProcessarDocumentos(retorno, idParte, lsTamanhoParte){
+		
+			var lsMsgErro = retorno;
+			lsMsgErro = lsMsgErro.replace("<erro>","");
+			lsMsgErro = lsMsgErro.replace("</erro>","");
+			
+			// exibir mensagem de erro
+			$("#cabecalhoParte"+idParte).empty();
+			
+			$("#cabecalhoParte"+idParte).append("&nbsp;&nbsp;" + idParte + "a. Parte - " + lsTamanhoParte + " MB&nbsp;<img id='img_aviso_erro' src='img/cancelar.png' style='position: relative; top: 3px; width: 18px; heigth: 18px;' title='Ocorreram erros na gera&ccedil;&atilde;o do arquivo'>");
+			$("#acPartesDocumentos"+idParte)[0].outerHTML += "<h3 id='erroParte"+idParte+"' name='erroParte"+idParte+"' style='color: red; background-color: #ffffff; width: 645px; margin-left: 100px; font-size: 12px;'>"+retorno+"</h3>";
+
+			//Ao ocorrer qualquer erro interromper todo o processamento
+			$("#hidPararProcessamento").val('True');
+		}
+		
+		function  trocarCorLink(pId){
+			document.getElementById(pId).style.color = '#800080';
+		}
+
+		function retornoProcessarDocumentos(retorno, tipoExibicao, idParte, lsTamanhoParte) {
+		
+			//Se ocorreram erros na geração/gravação do arquivo
+			if (retorno.indexOf("<erro>") >= 0){
+				falhaProcessarDocumentos(retorno, idParte, lsTamanhoParte);
+			}else{
+		
+				var lsParteLink = "";
+			//remover mensagem "Processando..." da parte atual		
+			$("#cabecalhoParte"+idParte).empty();
+			
+			//atualiza accordion com link: retorno
+			$("#cabecalhoParte"+idParte).off("click"); //limpa a pilha de eventos onclick
+				lsParteLink = ($("h3[name^=parte]").length > 1 ) ? "da " + idParte + "a. parte" : "";
+			if (tipoExibicao == "Zip") {
+					$("#cabecalhoParte"+idParte).append("&nbsp;&nbsp;<a href='#' title='"+retorno.split('=')[1]+"' id='linkDownloadParte"+idParte+"'>Clique aqui para obter o arquivo ZIP gerado com os documentos " + lsParteLink + " - " + lsTamanhoParte + " MB</a>");
+				$("#cabecalhoParte"+idParte).click(function(event){
+                    	trocarCorLink('linkDownloadParte'+idParte);
+						openDialog(retorno, 500, 180, false, ", scrollbars=yes, resizable=yes", 0, 0 ,'Salvando Arquivos',true); 
+						//window.location.href = retorno; 
+                        ativabotaoTornarFisico(idParte)
+					return false;
+				});
+			} else {  //pdf
+					$("#cabecalhoParte"+idParte).append("&nbsp;&nbsp;<a href='#' title='"+retorno.split('=')[1]+"' id='linkDownloadParte"+idParte+"'>Clique aqui para obter o arquivo PDF gerado " + lsParteLink + " - " + lsTamanhoParte + " MB</a>");
+				$("#cabecalhoParte"+idParte).click(function(event){
+						trocarCorLink('linkDownloadParte'+idParte);
+					window.open(retorno, "", "toolbar=no, resizable=yes");
+                        ativabotaoTornarFisico(idParte)
+					return false;
+				});
+			}
+                lnTemLink++
+			}
+			
+			var lnProxParte = idParte+1;
+			var lsPararProcessamento = $("#hidPararProcessamento").val();			
+			
+			//Verifica se é para parar e se tem a próxima parte
+			if (lsPararProcessamento=="False" && ($("h3[id="+lnProxParte+"]")).length ){
+				processarDocumentos(tipoExibicao, lnProxParte);
+			} else {
+				habilitarBotoesPlay();
+				$("#hidPararProcessamento").val('False');
+			}		
+		}
+		
+		function ativabotaoTornarFisico(pParte){
+            if (($("#hidOperacao").val()=='T') && (lnUltimaParte==pParte)) {
+                $("#btTornarFisico").prop('disabled', false);
+            }
+        }
+        
+		function expirarSessao(pTamArquivoExpiraSessao){
+		
+			if (pTamArquivoExpiraSessao>=lnTamDocAtivarSessao){
+				// RenovarSessao a cada 30min
+				lnSessao = setInterval('renovarSessao();', 18000);
+			} else {
+				clearInterval(lnSessao);
+			}
+		}
+		
+		//Método repetido de PopupImportarDocumento
+		function renovarSessao() {
+			//var lsURL = "ControleRenovarSessao.asp?psAcao=renovarsessao";
+		//	requisitarXmlHttp(lsURL, "", "Processando...");
+		//	return true;
+		//Chama controle via ajax
+			$.ajax({
+				url:"ControleRenovarSessao.asp",
+				type:"POST",
+				data:{
+						psAcao:"renovarsessao"
+					 },
+				context:document.body,
+				async:true,
+				cache:false,
+				success: function(retorno){
+							return true;
+						},
+				error:function falhaProcessarDocumentos(retorno, idParte){ //TODO não entra aqui!!!
+							return true;
+						}
+			});
+			//requisitarXmlHttp(lsURL, "", "");
+			return true;
+		}
+		
+		$(document).ready(function(){
+
+			//Exibe os checkbox de acordo com a Operação/Escopo/Situação
+			var lsOperacao = $("#hidOperacao").val();
+			var lsEscopo = $("#hidEscopo").val();
+			var lsSituacaoProcesso = $("#hidSituacaoProcesso").val();	
+			
+			if (lsOperacao =='C'){
+				$("#divCheckImpressao").hide();
+				$("#divCheckReImpressao").hide();
+                $("#divMsgTornarFisico").hide();
+				$("#divTornarFisico").hide();
+			} else if (lsOperacao =='I'){
+				$("#divCheckImpressao").show();
+				$("#divCheckReImpressao").hide();
+				
+				if (lsSituacaoProcesso == "TORNADO FÍSICO" && lsEscopo == 'I'){
+					//testa se o usuário tem o perfil tornar processo físico
+					$.ajax({
+						url:"ControleMultiplosDocumentos.asp",
+						type:"POST",
+						data:{
+								psAcao:"verificarPerfilTornarProcessoFisico"
+							 },
+						context:document.body,
+						async:false,
+						cache:false,
+						success: function(retorno){
+									if(retorno.toLowerCase()=="true"){$("#divCheckReImpressao").show();}
+								}
+					});					
+				}
+				
+                $("#divMsgTornarFisico").hide();                
+				$("#divTornarFisico").hide();
+			} else if (lsOperacao =='T'){
+				$("#divCheckImpressao").hide();
+				$("#divCheckReImpressao").hide();
+				$("#divCheckVersaoPesquisavel").hide();
+                $("#divMsgTornarFisico").show();                                                
+				$("#divTornarFisico").show();
+                if( $("#hidProcessoEquipePapel").val() == 'S'){
+                	$("#divMsgTornarFisico").html('<font>Antes da confirmação para torná-lo físico, o processo deve ser impresso e a impressão deve ser conferida.</font><br>')
+                    $("#btTornarFisico").prop('disabled', false);
+                }else{
+                    $("#divMsgTornarFisico").html('<font>Antes da confirmação para torná-lo físico, o processo deve ser impresso e a impressão deve ser conferida. O botão será habilitado ao efetuar o download da última parte.</font><br>')                
+                    $("#btTornarFisico").prop('disabled', true);                    
+			}
+			}
+			 // Desabilitando os botões play antes de montar as partes
+             desabilitarBotaoPlay();
+             //tém documentos e monta as partes
+			obterDocumentos();
+			
+			
+		});
+
+		function acessarPalavrasChaveDocumento(psNumeroDocumento, psNomeDocumento, psNumeroTipoDocumento) {
+
+			var gsNumeroProcesso = document.getElementById('hidNumeroProcesso').value;
+			var gsResponsavelProcesso = document.getElementById('hidResponsavelProcesso').value;
+			var gsNumeroEquipeAtividade = document.getElementById('hidNumeroEquipeAtividade').value;
+			var gsNomeEquipe = document.getElementById('hidNomeEquipeAtual').value;
+			var gsNomeAtividade = document.getElementById('hidNomeAtividadeAtual').value;
+
+			var lsURL = "ControleConsultarPalavrasChaveDocumento.asp?psAcao=exibir" +
+							   "&psNumeroDocumento=" + psNumeroDocumento +
+							   "&psNumeroTipoDocumentoAtual=" + psNumeroTipoDocumento +
+							   "&pbResponsavelProcesso=" + gsResponsavelProcesso +
+							   "&psNumeroProcesso=" + gsNumeroProcesso +
+							   "&psNumeroEquipeAtividade=" + gsNumeroEquipeAtividade +
+							   "&psNomeEquipe=" + gsNomeEquipe +
+							   "&psNomeAtividade=" + gsNomeAtividade +
+							   "&psNomeTelaOrigem=MULTIPLOSDOCUMENTOS";
+			openDialog(lsURL, 800, 680, false, ", scrollbars=yes", 150, 30);	
+		}
+		
+		//Métodos repetidos de TelaTornarProcessoFisico
+		function confirmarTornarProcessoFisico(){
+			var lsRequisicao
+			var lsMensagem = ""
+			
+			if (confirm(lsMensagem)) {
+				lsRequisicao = ""
+				lsRequisicao = lsRequisicao + "&" + "psNumeroProcesso=" + document.getElementById("hidNumeroProcesso").value
+				lsRequisicao = lsRequisicao + "&" + "psNumeroEquipeAtividadeAtual=" + document.getElementById("hidNumeroEquipeAtividade").value
+				requisitarXmlHttp("ControleTornarProcessoFisico.asp?psAcao=confirmarTornarProcessoFisico" + lsRequisicao, "tratarConfirmacaoTornarProcessoFisico(pbRetorno);")
+			}
+		}
+
+		function tratarConfirmacaoTornarProcessoFisico(pbRetorno){
+			if (pbRetorno) {
+					alert("O processo foi tornado físico com sucesso.");
+					window.close();
+					opener.atualizarDevidoMovimentacao();
+			}
+		}
+
+	</script>
+	
+	
+	<link rel="stylesheet" type="text/css" href="/css/rhap/jquery.dataTables.css"/>
+	<link rel="stylesheet" type="text/css" href="/css/rhap/padrao.css" />
+	<link rel="stylesheet" type="text/css" href="/css/PopupMultiplosDocumentos.css"/>
+<br/>
+	<div class="main" style="margin-left:1%; margin-right:1%;">
+	
+		<p class="titulo">Obter Cópia Integral do Processo&nbsp;:</p>
+		
+		<input type="hidden" id="hidNumeroProcesso" name="hidNumeroProcesso" value="10010019548071322">
+		<input type="hidden" id="hidNumeroEquipeAtividade" name="hidNumeroEquipeAtividade" value="3|34|8|1|61">
+		<input type="hidden" id="hidOperacao" name="hidOperacao" value="C">
+		<input type="hidden" id="hidEscopo" name="hidOperacao" value="I">
+		<input type="hidden" id="hidSituacaoProcesso" name="hidSituacaoProcesso" value="CONFIRMADO">
+		<input type="hidden" id="hidPararProcessamento" name="hidPararProcessamento" value="False">
+		<input type="hidden" id="hidProcessoEquipePapel" name="hidProcessoEquipePapel" value="N">		
+		<input type="hidden" id="hidResponsavelProcesso" name="hidResponsavelProcesso" value="nao">
+		<input type="hidden" id="hidNomeEquipeAtual" name="hidNomeEquipeAtual" value="PE">
+		<input type="hidden" id="hidNomeAtividadeAtual" name="hidNomeAtividadeAtual" value="">
+		<input type="hidden" id="hidExisteDocNaoPaginavel" name="hidExisteDocNaoPaginavel">
+
+		<div style="margin: 0 auto;width: 700;" align="left">
+			<div id="divCheckNaoPaginavel" name="divCheckNaoPaginavel" align="left" >
+			</div>
+			<div id="divCheckMetadados" name="divCheckMetadados" align="left" >
+				<input type='checkbox' id='chkMetaDados' name='chkMetaDados' checked>Gerar página de autenticação</input><br>
+			</div>
+			<div id="divCheckImpressao" name="divCheckImpressao" align="left" >
+				<input type='checkbox' id='chkVersoBranco' onclick='atualizarPartes(false);' name='chkVersoBranco'>Colocar marca de verso em branco</input><br>
+			</div>
+			<div id="divCheckReImpressao" name="divCheckReImpressao" align="left" >
+				<input type='checkbox' id='chkReimpressao' name='chkReimpressao' onclick='atualizarPartes(false);'>Reimprimir processo tornado físico (sem marcas de cópia).</input><br>
+			</div>
+            <div id="divMsgTornarFisico" name="divMsgTornarFisico" align="center" >
+			</div>            
+			<div id="divTornarFisico" name="divTornarFisico" align="center" >
+				<input type='button' id='btTornarFisico' name='btTornarFisico' value='Confirmar Tornar o Processo Físico' onClick='confirmarTornarProcessoFisico()'/><br>
+			</div>
+			<div id="divCheckVersaoPesquisavel" name="divCheckVersaoPesquisavel" align="left">
+				<input type='checkbox' id='chkVersaoPesquisavel' name='chkVersaoPesquisavel'> Obter versão pesquisável dos documentos</input><br>
+			</div>
+		</div>
+		<br>
+		<table border='0' width='100%' class='cabecalhoDocumentos' cellspacing='0px'>
+			<tr>
+			<th width='30%' align='left'>Todos os documentos - <font id='txTamanhoTotal'></font> MB</th>
+			<!--th width='50%' align='left'><input type='checkbox' id='chkNaoExpirarSessao' checked onclick='expirarSessao();'>N&atilde;o permitir que a sess&atilde;o expire</th-->
+			<th width='20%' align='right'><img id='imgPdf' name='imgPdf' src='/img/ico_pdf_play.png' title='Gerar cópia PDF' border='0' onclick='atualizarPartes(true);processarDocumentos("PDF",1);' class='clicavel' style='cursor:pointer;'>
+									&nbsp;<img id='imgZip' name='imgZip' src='/img/ico_zip_play.png' title='Gerar cópia ZIP' border='0' onclick='atualizarPartes(true);processarDocumentos("Zip",1);' class='clicavel' style='cursor:pointer;'>
+									&nbsp;<img id='imgParar' name='imgParar' src='/img/ico_stop_off.png' title='Parar Execução da Cópia' border='0' onclick='pararProcessamento();' disabled style='cursor:pointer;'>
+			</th>
+			</tr>
+		</table>
+		<BR>
+		<div id='conteudoPartes' style='margin:0 auto;width: 737;'></div>
+		
+	</div>
+</body>
+</html>
