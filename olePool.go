@@ -173,7 +173,7 @@ func (api *apiConn) getCookies() string {
 	return resposta.(string)
 }
 
-func (api *apiConn) getJSONData() string {
+func (api *apiConn) getInitialJSONData() string {
 	// Trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "GET_JSON_DATA_0",
@@ -417,6 +417,7 @@ func (api *apiConn) olePoolInicio() {
 										}
 										
 									}
+									map_final["__META__"] = {codEquipe: document.getElementById("hidEquipeSelecionadaCaixaTrabalho").value};
 									return jQuery.stringify(map_final);
 									};
 									`)
@@ -719,7 +720,7 @@ func (api *apiConn) olePoolInicio() {
 				break
 			}
 
-			Trace.Printf("%#v \n %T \n", res1, res1)
+			// Trace.Printf("%#v \n %T \n", res1, res1)
 			api.mutex.Unlock()
 			Trace.Println("x")
 			resposta := res1.Value()
