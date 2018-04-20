@@ -198,7 +198,8 @@ func (api *apiConn) olePoolInicio() {
 		oleerr := err.(*ole.OleError)
 		// S_FALSE           = 0x00000001 // CoInitializeEx was already called on this thread
 		if oleerr.Code() != ole.S_OK && oleerr.Code() != 0x00000001 {
-			fmt.Println(err)
+			Info.Println(err)
+			Trace.Println(err)
 		}
 	} else {
 		// Only invoke CoUninitialize if the thread was not initizlied before.
@@ -253,17 +254,18 @@ func (api *apiConn) olePoolInicio() {
 			Trace.Println("x")
 			valConta := int(nois.Val)
 			Trace.Printf("\n %d janelas identificadas.", valConta)
-			var re = regexp.MustCompile(`eprocesso\.suiterfb\.receita\.fazenda\/ControleAcessarCaixaTrabalho\.asp\?psAcao=apresentarPagina&psLimpaEquipe=`)
+			var re = regexp.MustCompile(`eprocesso\.suiterfb\.receita\.fazenda\/ControleAcessarCaixaTrabalho.*?apresentarPagina`)
 			Trace.Println("x")
 			var itemjanela *ole.IDispatch
+
 			for i := 0; i < valConta; i++ {
-				Trace.Println(" o")
+				Trace.Println("\n----\nitem", i)
 				item, _ := wins.CallMethod("Item", i)
 				Trace.Println(" o")
 				itemd := item.ToIDispatch()
 				Trace.Printf(" \n            o    %#v", itemd)
 				locationURLV, _ := itemd.GetProperty("LocationURL")
-				Trace.Println(" o")
+				Trace.Println(" item ", i, " URL ->", locationURLV)
 				urlV := locationURLV.Value()
 				Trace.Println(" o")
 				url := urlV.(string)
@@ -276,26 +278,39 @@ func (api *apiConn) olePoolInicio() {
 				if testeRegex {
 					Trace.Println(" o!")
 					Trace.Printf(`
-						[!] E-PROCESSO : (id: %d) %s
-						`, i, locationURLV)
+
+
+	+++++++++++++++++++++++++++++
+	++ IDENTIFICADA PELO REGEX ++
+	+++++++++++++++++++++++++++++
+
+	E-PROCESSO : (i: %d) 
+		URL: %s
+		
+
+		`, i, url)
 					itemjanela = itemd
 					Trace.Println(" o!")
-					break
+					// break
 				}
 			}
 			busy := oleutil.MustGetProperty(itemjanela, "Busy")
 			container := oleutil.MustGetProperty(itemjanela, "Container")
 			application := oleutil.MustGetProperty(itemjanela, "Application")
-			fmt.Printf(`
-			Janela Internet Explorer:
-			+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-			Busy              %v
-			Container:        %v
-			Application       %v
-			HWND              %v
-			name              %v
-			*****************************************************************************************	
-				`,
+			Info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
+				oleutil.MustGetProperty(itemjanela, "HWND").Value(),
+				busy.Value(),
+			)
+			Trace.Printf(`
+				Janela Internet Explorer:
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				Busy              %v
+				Container:        %v
+				Application       %v
+				HWND              %v
+				name              %v
+				*****************************************************************************************	
+					`,
 				busy.Value(),
 				container.Value(),
 				application.Value(),
@@ -303,124 +318,44 @@ func (api *apiConn) olePoolInicio() {
 				oleutil.MustGetProperty(itemjanela, "Name").Value(),
 			)
 
-			api.mutex.Unlock()
 			Trace.Println("x")
 			api.window = itemjanela
 			Trace.Println("x")
+			api.mutex.Unlock()
 			api.respostaCh <- true
 
 		case "PATCHWINDOWPRINCIPAL":
 			api.mutex.Lock()
 			Trace.Println("x")
 			iePrincipalD := api.window
-			Trace.Println("x")
+			Trace.Println("x iePrincipalD -->", iePrincipalD)
 			iePrincipalDocumentV, _ := iePrincipalD.GetProperty("Document")
 			Trace.Println("x")
 			iePrincipalDocumentD := iePrincipalDocumentV.ToIDispatch()
 			Trace.Println("x")
+			title := oleutil.MustGetProperty(iePrincipalDocumentD, "title").ToIDispatch()
+			Trace.Println("  title: ", title)
 			windowPrincipal := oleutil.MustGetProperty(iePrincipalDocumentD, "parentWindow").ToIDispatch()
 			Trace.Println("x")
 			api.windowJsObj = windowPrincipal
+			variant, err := oleutil.CallMethod(windowPrincipal, "eval", `_____OWNED____`)
+			if err != nil {
+				Trace.Printf("[X] nao tem owned. PATCH WINDOW!!! ")
+			} else {
+				Trace.Printf("Janela já ta OWNED, seguir e liberar o mytex e o canal")
+				api.mutex.Unlock()
+				Trace.Println("x")
+				api.respostaCh <- true
+				Trace.Println("x")
+				break
+				Trace.Println("x")
+			}
+			Trace.Println("x")
+			variantVal := variant.Value()
+			Trace.Println("variantVal", variantVal)
+			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
 			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window.oro_obj = {};`)
-			Trace.Println("x")
-			oleutil.MustCallMethod(windowPrincipal, "eval", `
-				jQuery.extend({
-					stringify  : function stringify(obj) {         
-						if ("JSON" in window) {
-							return JSON.stringify(obj);
-						}
-						
-						var t = typeof (obj);
-						if (t != "object" || obj === null) {
-							// simple data type
-							if (t == "string") obj = '"' + obj + '"';
-							
-							return String(obj);
-							} else {
-								// recurse array or object
-								var n, v, json = [], arr = (obj && obj.constructor == Array);
-								
-								for (n in obj) {
-									v = obj[n];
-									t = typeof(v);
-									if (obj.hasOwnProperty(n)) {
-										if (t == "string") {
-											v = '"' + v + '"';
-											} else if (t == "object" && v !== null){
-												v = jQuery.stringify(v);
-											}
-											
-											json.push((arr ? "" : '"' + n + '":') + String(v));
-										}
-									}
-									
-									return (arr ? "[" : "{") + String(json) + (arr ? "]" : "}");
-								}
-							}
-							});
-							
-							window.getJsonData = function() {
-								var td_regex = /ddrivetip\(\'(.*?)\'\,/m;
-								var tableCol = document.getElementsByTagName("table");
-								var num_campos;
-								var headers;
-								var map_headers = {};
-								var map_final = {};
-								console.log(tableCol.length);
-								for (i = 0; i < tableCol.length; i++) {
-									if (tableCol[i].id !== "tblProcessos") {
-										continue;
-									}
-									headers = tableCol[i].getElementsByTagName("th");
-									num_campos = headers.length;
-									console.log(num_campos, " campos");
-									for (n = 0; n < num_campos; n++) {
-										//console.log(n, " -> ", headers[n].innerText);
-										map_headers[n] = headers[n].innerText.replace(/[^a-zA-Z ]/g, "_").toLowerCase().replace(/[^a-zA-Z0-9\_]+$/gm, "");
-										//console.log(n, " -> ", map_headers[n]);
-									}
-									var trs = tableCol[i].getElementsByTagName("tr");
-									var trlen = trs.length;
-									//console.log();
-									//console.log("trlen", trlen);
-									//console.log(trs);
-									for (t = 0; t < trlen; t++) {
-										var tds = trs[t].getElementsByTagName("td");
-										var mapinha = {};
-										if (tds.length !== num_campos) { continue };
-										//console.log(t, tds);
-										for (k = 0; k < tds.length; k++) {
-											//console.log("---------------------------------------");
-											var value
-											if (!tds[k].onmouseover) {
-												value = tds[k].innerText
-												} else {
-													var match = td_regex.exec(tds[k].outerHTML);
-													value = match[1];
-												}
-												//console.log(k, " - ", map_headers[k], " --> ", value);
-												value = value;
-
-												//if (value === "" || value === "-") {
-												//	console.log("+Descartando: ", value);
-												//	continue
-												//}
-												
-												mapinha[map_headers[k]] = value;
-											}
-											console.log(Object.keys(mapinha));
-											key_p = mapinha["n_mero processo"].replace(/\(\d+\)/g, "");
-											key_p = key_p.replace(/\D/g, "");
-											//console.log("key_p ", key_p);
-											map_final[key_p] = mapinha;
-										}
-										
-									}
-									map_final["__META__"] = {codEquipe: document.getElementById("hidEquipeSelecionadaCaixaTrabalho").value};
-									return jQuery.stringify(map_final);
-									};
-									`)
 			Trace.Println("x")
 
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window.hacked_visualizarProcesso = function(TARGET_JANELA, psNumeroProcesso, psNumeroEquipeAtividade, psNomeEquipeAtual, psNomeAtividadeAtual) {
@@ -438,7 +373,7 @@ func (api *apiConn) olePoolInicio() {
 				parametros += "&psNumeroEquipeAtividade="+params["psNumeroEquipeAtividade"] ;
 				parametros += "&psNomeEquipeAtual=" + params["psNomeEquipeAtual"] ;
 				parametros += "&psNomeAtividadeAtual=" + params["psNomeAtividadeAtual"] ;
-				var posJan = Object.keys(window.oro_obj).length * 20 + 5;
+				var posJan = Object.keys(window.oro_obj).length * 25 + 5;
 				if (window.oro_obj[TARGET]) {
 					window.oro_obj[TARGET] = window.open("about:blank", TARGET, "width="+(lnWidth-300)+",height="+(lnHeight-270)+",scrollbars=no,resizable=yes,left=100,top=100");
 				}
@@ -493,6 +428,113 @@ func (api *apiConn) olePoolInicio() {
 					return false
 				}
 			};`)
+
+			Trace.Println("x")
+
+			oleutil.MustCallMethod(windowPrincipal, "eval", `
+				window.getJsonData = function() {
+					var td_regex = /ddrivetip\(\'(.*?)\'\,/m;
+					var tableCol = document.getElementsByTagName("table");
+					var num_campos;
+					var headers;
+					var map_headers = {};
+					var map_final = {};
+					console.log(tableCol.length);
+					for (i = 0; i < tableCol.length; i++) {
+						if (tableCol[i].id !== "tblProcessos") {
+							continue;
+						}
+						headers = tableCol[i].getElementsByTagName("th");
+						num_campos = headers.length;
+						console.log(num_campos, " campos");
+						for (n = 0; n < num_campos; n++) {
+							//console.log(n, " -> ", headers[n].innerText);
+							map_headers[n] = headers[n].innerText.replace(/[^a-zA-Z ]/g, "_").toLowerCase().replace(/[^a-zA-Z0-9\_]+$/gm, "");
+							//console.log(n, " -> ", map_headers[n]);
+						}
+						var trs = tableCol[i].getElementsByTagName("tr");
+						var trlen = trs.length;
+						//console.log();
+						//console.log("trlen", trlen);
+						//console.log(trs);
+						for (t = 0; t < trlen; t++) {
+							var tds = trs[t].getElementsByTagName("td");
+							var mapinha = {};
+							if (tds.length !== num_campos) { continue };
+							//console.log(t, tds);
+							for (k = 0; k < tds.length; k++) {
+								//console.log("---------------------------------------");
+								var value
+								if (!tds[k].onmouseover) {
+									value = tds[k].innerText
+									} else {
+										var match = td_regex.exec(tds[k].outerHTML);
+										value = match[1];
+									}
+									//console.log(k, " - ", map_headers[k], " --> ", value);
+									value = value;
+
+									//if (value === "" || value === "-") {
+									//	console.log("+Descartando: ", value);
+									//	continue
+									//}
+									
+									mapinha[map_headers[k]] = value;
+								}
+								console.log(Object.keys(mapinha));
+								key_p = mapinha["n_mero processo"].replace(/\(\d+\)/g, "");
+								key_p = key_p.replace(/\D/g, "");
+								//console.log("key_p ", key_p);
+								map_final[key_p] = mapinha;
+							}
+							
+						}
+						map_final["__META__"] = {codEquipe: document.getElementById("hidEquipeSelecionadaCaixaTrabalho").value};
+						return jQuery.stringify(map_final);
+						};
+				`)
+
+			oleutil.MustCallMethod(windowPrincipal, "eval", `jQuery.extend({
+				stringify  : function stringify(obj) {
+					if ("JSON" in window) {
+						return JSON.stringify(obj);
+					}
+					
+					var t = typeof (obj);
+					if (t != "object" || obj === null) {
+						// simple data type
+						if (t == "string") obj = '"' + obj + '"';
+						
+						return String(obj);wind
+						} else {
+							// recurse array or object
+							var n, v, json = [], arr = (obj && obj.constructor == Array);
+							
+							for (n in obj) {
+								v = obj[n];
+								t = typeof(v);
+								if (obj.hasOwnProperty(n)) {
+									if (t == "string") {
+										v = '"' + v + '"';
+										} else if (t == "object" && v !== null){
+											v = jQuery.stringify(v);
+										}
+										
+										json.push((arr ? "" : '"' + n + '":') + String(v));
+									}
+								}
+								
+								return (arr ? "[" : "{") + String(json) + (arr ? "]" : "}");
+							}
+						}
+						});						
+								`)
+			Trace.Println("x")
+
+			oleutil.MustCallMethod(windowPrincipal, "eval", `window._____OWNED____ = true;`)
+			Trace.Println("x")
+			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
+			Trace.Println("x")
 			api.mutex.Unlock()
 			Trace.Println("x")
 
@@ -532,7 +574,7 @@ func (api *apiConn) olePoolInicio() {
 					api.linksMap[resp] = linkaD
 					go func(p *Processo) {
 						canalDeProcessos <- p
-						fmt.Printf("\n + Microrotina encaminhou processo %v pro canal.\n", p)
+						Trace.Printf("\n + Microrotina encaminhou processo %v pro canal.\n", p)
 					}(&Processo{resp, processo})
 					resp++
 				}
@@ -666,21 +708,37 @@ func (api *apiConn) olePoolInicio() {
 			api.respostaCh <- res.Value().(bool)
 
 		case "PEGA_HREF_STRING_OR_NOT_0":
+			Trace.Printf("-")
 			pld := mensagem.payload.(*SendJanProc)
+			Trace.Printf("-")
 			janid := pld.janid
+			Trace.Printf("-")
 			// processo := pld.processo
+			Trace.Printf("-")
+
 			api.mutex.Lock()
 			// Trace.Println("x")
+			Trace.Printf("-")
+
 			res := oleutil.MustCallMethod(
 				api.windowJsObj,
 				"eval",
 				fmt.Sprintf(`window.get_download_href_or_false("%s")`,
 					janid),
 			)
+			Trace.Printf("-")
+
 			api.mutex.Unlock()
+			Trace.Printf("-")
+
 			resposta := res.Value()
+			Trace.Printf("-")
+
 			// Trace.Printf("\n%T -> %v\n", resposta, resposta)
+			Trace.Printf("-")
+
 			api.respostaCh <- resposta
+			Trace.Printf("-")
 
 		case "GET_COOKIES_0":
 			// pld := mensagem.payload.(*SendJanProc)
@@ -713,7 +771,7 @@ func (api *apiConn) olePoolInicio() {
 				Trace.Println(" -- loop -- ")
 				res1, err = api.windowJsObj.CallMethod("eval", `window.getJsonData();`)
 				if err != nil {
-					fmt.Printf("%#v", err)
+					Trace.Printf("%#v", err)
 					time.Sleep(350 * time.Millisecond)
 					continue
 				}

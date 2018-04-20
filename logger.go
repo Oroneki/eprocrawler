@@ -19,7 +19,6 @@ func SetUpLoggers(
 		log.Ltime|log.Lshortfile)
 
 	Info = log.New(infoHandler,
-		"INFO  : ",
-		log.Ltime|log.Lshortfile)
+		"", log.Ltime)
 
 }

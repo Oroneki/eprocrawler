@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -12,16 +13,16 @@ import (
 )
 
 var nomesDeJanela [10]string = [10]string{
-	"_JANELINHA__ZERO__",
-	"_JANELINHA___UM___",
-	"_JANELINHA__DOIS__",
-	"_JANELINHA__TRES__",
-	"_JANELINHA_QUATRO_",
-	"_JANELINHA__CINCO_",
-	"_JANELINHA__SEIS__",
-	"_JANELINHA__SETE__",
-	"_JANELINHA__OITO__",
-	"_JANELINHA__NOVE__",
+	"_____JANELINHA_____ZERO______",
+	"_____JANELINHA______UM_______",
+	"_____JANELINHA_____DOIS______",
+	"_____JANELINHA_____TRES______",
+	"_____JANELINHA____QUATRO_____",
+	"_____JANELINHA_____CINCO_____",
+	"_____JANELINHA_____SEIS______",
+	"_____JANELINHA_____SETE______",
+	"_____JANELINHA_____OITO______",
+	"_____JANELINHA_____NOVE______",
 }
 
 type Janelinha struct {
@@ -30,6 +31,12 @@ type Janelinha struct {
 	entradaProcessos <-chan *Processo
 	waitGroup        *sync.WaitGroup
 	downloadChannel  chan *DownloadPayload
+}
+
+type DownloadInfo struct {
+	processo string
+	bytes    uint64
+	// total
 }
 
 func (j *Janelinha) init(dst string) {
@@ -99,19 +106,21 @@ func (j *Janelinha) init(dst string) {
 	Trace.Printf("%s - die!", j.id)
 }
 
-func startDownloader(id int, ch chan *DownloadPayload, wg *sync.WaitGroup) {
+func startDownloader(id int, ch chan *DownloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan DownloadInfo) {
 	Trace.Printf("\nIniciando Downloader %d ", id)
 	for payload := range ch {
 		Trace.Printf("\nDownloader %d recebeu download %s", id, payload.titlePDF)
-		Downloader(payload, wg)
+		Downloader(payload, wg, cc, ci)
 	}
 }
 
 func esperarDownloads(wg *sync.WaitGroup) {
 	wg.Wait()
-	Info.Println(`===========================================================================
-		Processos Baixados :)
+	Info.Println(`
+===========================================================================
+		Todos os processos enviados para download
 ===========================================================================`)
+	Trace.Println(` === Todos os processos enviados para download === apos o wg.Wait()`)
 }
 
 func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinhas int, num_downloaders int, api *apiConn, wg *sync.WaitGroup) {
@@ -138,6 +147,8 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinha
 
 	chP := make(chan *Processo)
 	chDownload := make(chan *DownloadPayload)
+	chDownloadComplete := make(chan bool)
+	chDownloadInfo := make(chan DownloadInfo)
 	Trace.Printf("-")
 	// api := instantiateNewAPIConn()
 
@@ -149,7 +160,7 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinha
 	}
 	Trace.Printf("-")
 	for i := 0; i < num_downloaders; i++ {
-		go startDownloader(i, chDownload, wg)
+		go startDownloader(i, chDownload, wg, chDownloadComplete, chDownloadInfo)
 	}
 	Trace.Printf("-")
 	if num_janelinhas > 10 {
@@ -161,11 +172,38 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinha
 		go jan.init(diretorioDownload)
 	}
 	Trace.Printf("-")
-	Info.Println("\n %d processos encontrados na página", num_procs)
-	Trace.Printf("-")
-	Trace.Printf("-")
+	Info.Printf(" * %d processos encontrados na página * ", num_procs)
+	Trace.Printf("%d processos encontrados na página", num_procs)
 	Trace.Printf("-")
 
+	go DownloadReporter(chDownloadInfo)
+
+	for index := 0; index < num_procs; index++ {
+		<-chDownloadComplete
+		Info.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
+		Trace.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
+	}
+
+	close(chP)
+	close(chDownload)
+	close(chDownloadComplete)
+	close(chDownloadInfo)
+
+	Info.Printf("\nFim dos downloads :)")
+
+}
+
+func DownloadReporter(ch chan DownloadInfo) {
+	dados := make(map[string]uint64)
+	for {
+		pld := <-ch
+		dados[pld.processo] = pld.bytes
+		var tot uint64
+		for k := range dados {
+			tot += dados[k]
+		}
+		fmt.Printf("\r%s [ %d ]", pld.processo, tot)
+	}
 }
 
 func main() {
@@ -208,7 +246,7 @@ func main() {
 		go esperarDownloads(wg)
 		serveHttp(api, diretorioDownload)
 	} else {
-		time.Sleep(2 * time.Second)
+		time.Sleep(4 * time.Second)
 		esperarDownloads(wg)
 	}
 
