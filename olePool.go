@@ -348,18 +348,18 @@ func (api *apiConn) olePoolInicio() {
 				api.respostaCh <- true
 				Trace.Println("x")
 				break
-				Trace.Println("x")
+
 			}
 			Trace.Println("x")
 			variantVal := variant.Value()
 			Trace.Println("variantVal", variantVal)
+			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('teste');`)
+			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
 			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window.oro_obj = {};`)
 			Trace.Println("x")
-
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window.hacked_visualizarProcesso = function(TARGET_JANELA, psNumeroProcesso, psNumeroEquipeAtividade, psNomeEquipeAtual, psNomeAtividadeAtual) {
-										
 				abrirPopupProcesso(TARGET_JANELA, { 'psNumeroProcesso': psNumeroProcesso, 'psNumeroEquipeAtividade': psNumeroEquipeAtividade, 'psNomeEquipeAtual': psNomeEquipeAtual, 'psNomeAtividadeAtual': psNomeAtividadeAtual });
 			};`)
 
