@@ -202,7 +202,9 @@ func DownloadReporter(ch chan DownloadInfo) {
 		for k := range dados {
 			tot += dados[k]
 		}
+		fmt.Printf("\r                                                                      ")
 		fmt.Printf("\r%s [ %d ]", pld.processo, tot)
+		time.Sleep(200 * time.Millisecond)
 	}
 }
 

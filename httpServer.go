@@ -33,10 +33,15 @@ func handlerWithInitialTemplate(api *apiConn, pasta_down string) http.HandlerFun
 		api.patchWinPrincipal()
 		Trace.Printf("-")
 		strData := api.getInitialJSONData()
-		Trace.Printf("-")
-
-		// Trace.Printf("\n%#v", strData)
-		json.Unmarshal([]byte(strData), &data)
+		// Trace.Printf("\nString Retornada do api\n%#v\n\n\n", strData)
+		// Trace.Printf("\nmap antes\n%#v\n\n\n", data)
+		dataBytes := []byte(strData)
+		// Trace.Printf("\ndata bytes\n%#v\n\n\n", dataBytes)
+		err := json.Unmarshal(dataBytes, &data)
+		if err != nil {
+			Trace.Println("Erro no Unmarshall", err)
+			Trace.Println(data)
+		}
 		Trace.Printf("-")
 
 		data["__META__"]["pasta_download"] = pasta_down
