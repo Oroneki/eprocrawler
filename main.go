@@ -125,10 +125,7 @@ func esperarDownloads(wg *sync.WaitGroup) {
 
 func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinhas int, num_downloaders int, api *apiConn, wg *sync.WaitGroup) {
 	// runtime.LockOSThread()
-	Trace.Printf("-")
-	if !strings.HasSuffix(diretorioDownload, `\`) {
-		diretorioDownload = diretorioDownload + `\`
-	}
+
 	Trace.Printf("-")
 
 	_, err := os.Stat(diretorioDownload)
@@ -196,16 +193,21 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinha
 func DownloadReporter(ch chan DownloadInfo) {
 	dados := make(map[string]uint64)
 	for {
-		pld := <-ch
+		pld, more := <-ch
+		if more == false {
+			break
+		}
 		dados[pld.processo] = pld.bytes
 		var tot uint64
 		for k := range dados {
 			tot += dados[k]
 		}
 		fmt.Printf("\r                                                                      ")
-		fmt.Printf("\r%s [ %d ]", pld.processo, tot)
-		time.Sleep(200 * time.Millisecond)
+		fmt.Printf("\r%d [ %s ]", tot, pld.processo)
+		// time.Sleep(200 * time.Millisecond)
+
 	}
+	Trace.Println("Encerrando DownloadReporter")
 }
 
 func main() {
@@ -228,6 +230,10 @@ func main() {
 	flag.BoolVar(&serveData, "servir", false, `Servir dados`)
 
 	Trace.Printf("-")
+
+	if !strings.HasSuffix(diretorioDownload, `\`) {
+		diretorioDownload = diretorioDownload + `\`
+	}
 
 	flag.Parse()
 

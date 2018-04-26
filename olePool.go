@@ -352,7 +352,7 @@ func (api *apiConn) olePoolInicio() {
 			Trace.Println("x")
 			variantVal := variant.Value()
 			Trace.Println("variantVal", variantVal)
-			oleutil.MustCallMethod(windowPrincipal, "eval", `window.console = {log: function(a){return a}};`)
+			oleutil.MustCallMethod(windowPrincipal, "eval", JSconsole)
 			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
 			Trace.Println("x")
@@ -365,6 +365,8 @@ func (api *apiConn) olePoolInicio() {
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSpatchInicial)
 			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JStestLoadPagina)
+			Trace.Println("x")
+			oleutil.MustCallMethod(windowPrincipal, "eval", JSUnicodeHandle)
 			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSgetJsonData)
 			Trace.Println("x")
@@ -575,7 +577,7 @@ func (api *apiConn) olePoolInicio() {
 				res1, err = api.windowJsObj.CallMethod("eval", `window.getJsonData();`)
 				if err != nil {
 					Trace.Printf("%#v", err)
-					time.Sleep(350 * time.Millisecond)
+					time.Sleep(100 * time.Millisecond)
 					continue
 				}
 				break
