@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -10,6 +11,10 @@ import (
 type EprocessoData struct {
 	Data map[string]map[string]string
 	// str  string
+}
+
+type PayloadDeleteResponse struct {
+	data map[string][]string
 }
 
 func withData(data *EprocessoData) http.HandlerFunc {
@@ -97,6 +102,33 @@ func handlerWithInitialJson(api *apiConn, pasta_down string) http.HandlerFunc {
 	}
 }
 
+func deleteFilesHandler(pasta_down string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "Error reading request body",
+					http.StatusInternalServerError)
+			}
+			ok, errado := apagarArquivos(pasta_down, string(body))
+			Trace.Println("Apagar arquivos handler... ok?", ok)
+			var mapa = make(map[string][]string)
+			mapa["certo"] = ok
+			mapa["errado"] = errado
+			Trace.Println("MAPA\n", mapa)
+			arrBytes, err := json.Marshal(mapa)
+			if err != nil {
+				Trace.Println("nao fez o []bytes :(")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Write(arrBytes)
+		} else {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -117,6 +149,7 @@ func serveHttp(api *apiConn, pdfPath string) {
 	// Trace.Printf("\n\nDATA (serve api)%#v\n---\n-< do serveApi", data)
 	http.HandleFunc("/", handlerWithInitialTemplate(api, pdfPath)) // set router
 	http.HandleFunc("/json", handlerWithInitialJson(api, pdfPath)) // set router
+	http.HandleFunc("/deletefiles", deleteFilesHandler(pdfPath))   // set router
 	Info.Printf("\nServir na porta 9090... Visite http://localhost:9090 no Chrome (ou Firefox se tiver atualizado)")
 	Trace.Printf("\nServir na porta 9090... Visite http://localhost:9090 no Chrome (ou Firefox se tiver atualizado)")
 	Trace.Printf("\n-x")
