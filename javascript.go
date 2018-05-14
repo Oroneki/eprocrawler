@@ -275,7 +275,7 @@ const (
 				// console.log(c,'   ', c.charCodeAt(0), '    ', mapaCharNumberToUnicode[c.charCodeAt(0)]);
 				return mapaCharNumberToUnicode[c.charCodeAt(0)];
 			}
-			// console.log(c, '  < sem corresp')
+			console.log(c, ' <> ', c.charCodeAt(0), ' < ', word);
 			return " ";
 		});
 		// console.log(newC);
@@ -324,6 +324,7 @@ const (
 					}
 					//console.log(k, " - ", map_headers[k], " --> ", value);
 					//value = value.replace(/[^\w\(\)]/g, " ");
+					value = value.replace("\\'", "'");
 					value = window.AnsiToUnicode(value);
 	
 					if (value === "" || value === "-" || value === "\u002D" || value === "    ") {
