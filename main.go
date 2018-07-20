@@ -216,6 +216,7 @@ func main() {
 	defaultDownloadFolder := getUserHomeDir() + `\Downloads\`
 
 	var diretorioDownload string
+	var portServer string
 	var num_janelinhas int
 	var num_downloaders int
 	var baixarProcessos bool
@@ -224,6 +225,7 @@ func main() {
 	Trace.Printf("-")
 
 	flag.StringVar(&diretorioDownload, "pasta", defaultDownloadFolder, `Pasta de Destino dos Processos Baixados`)
+	flag.StringVar(&portServer, "porta", "9090", `Porta do Servidor`)
 	flag.IntVar(&num_janelinhas, "janelas", 3, `Número de janelas simultâneas que devem ser abertas`)
 	flag.IntVar(&num_downloaders, "downloads", 5, `Número máximo de downloads simultâneos`)
 	flag.BoolVar(&baixarProcessos, "baixar", true, `Baixar Processos na Pasta Indicada em -pasta`)
@@ -252,7 +254,7 @@ func main() {
 	if serveData {
 		Trace.Printf(">")
 		go esperarDownloads(wg)
-		serveHttp(api, diretorioDownload)
+		serveHttp(api, diretorioDownload, portServer)
 	} else {
 		time.Sleep(4 * time.Second)
 		esperarDownloads(wg)

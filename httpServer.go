@@ -10,6 +10,7 @@ import (
 
 type EprocessoData struct {
 	Data map[string]map[string]string
+	Port string
 	// str  string
 }
 
@@ -30,7 +31,7 @@ func withData(data *EprocessoData) http.HandlerFunc {
 	}
 }
 
-func handlerWithInitialTemplate(api *apiConn, pasta_down string) http.HandlerFunc {
+func handlerWithInitialTemplate(api *apiConn, pasta_down string, port string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		Trace.Printf("-")
 		var data map[string]map[string]string
@@ -57,7 +58,7 @@ func handlerWithInitialTemplate(api *apiConn, pasta_down string) http.HandlerFun
 
 		// Trace.Printf("\n\n\n\nTEMPLATE:\n%#v\n\n<- do template\n", data)
 
-		e := t.Execute(w, &EprocessoData{data})
+		e := t.Execute(w, &EprocessoData{data, port})
 		Trace.Printf("-")
 
 		if e != nil {
@@ -136,7 +137,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func serveHttp(api *apiConn, pdfPath string) {
+func serveHttp(api *apiConn, pdfPath string, port string) {
 	Trace.Printf("\n-x")
 	fs := http.FileServer(http.Dir("front_build/static/"))
 	Trace.Printf("\n-x")
@@ -147,13 +148,12 @@ func serveHttp(api *apiConn, pdfPath string) {
 	http.Handle("/pdf/", corsMiddleware(http.StripPrefix("/pdf/", fsPdf)))
 	Trace.Printf("\n-x")
 	// Trace.Printf("\n\nDATA (serve api)%#v\n---\n-< do serveApi", data)
-	http.HandleFunc("/", handlerWithInitialTemplate(api, pdfPath)) // set router
-	http.HandleFunc("/json", handlerWithInitialJson(api, pdfPath)) // set router
-	http.HandleFunc("/deletefiles", deleteFilesHandler(pdfPath))   // set router
-	Info.Printf("\nServir na porta 9090... Visite http://localhost:9090 no Chrome (ou Firefox se tiver atualizado)")
-	Trace.Printf("\nServir na porta 9090... Visite http://localhost:9090 no Chrome (ou Firefox se tiver atualizado)")
+	http.HandleFunc("/", handlerWithInitialTemplate(api, pdfPath, port)) // set router
+	http.HandleFunc("/json", handlerWithInitialJson(api, pdfPath))       // set router
+	http.HandleFunc("/deletefiles", deleteFilesHandler(pdfPath))         // set router
+	Info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
 	Trace.Printf("\n-x")
-	err := http.ListenAndServe(":9090", nil) // set listen port
+	err := http.ListenAndServe(":"+port, nil) // set listen port
 	Trace.Printf("\n-x")
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
