@@ -240,6 +240,7 @@ func main() {
 	flag.Parse()
 
 	api := instantiateNewAPIConn()
+
 	api.janelaEprocesso()
 	api.patchWinPrincipal()
 

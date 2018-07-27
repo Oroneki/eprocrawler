@@ -164,3 +164,46 @@ trans = {
     "n_mero de inscri__o": "Número Inscrição",
     "situa__o da inscri__o": "Situação Inscrição",
 }
+
+
+stringSida = (function() {
+    console.log("VAI");
+    var oro_key_col_ = window.document.getElementsByTagName("b");
+    var key_vals = ""
+    for (i=0; i< oro_key_col_.length;i++) {
+        console.log(i);
+        console.log(oro_key_col_[i].innerText);
+        var parent___ = oro_key_col_[i];
+        var sobe = 4;
+        while (
+            (parent___.getElementsByTagName("font").length % 2 !== 0 || parent___.getElementsByTagName("font").length === 0) && 
+            sobe > 0 
+        ) {
+            // console.log("                                 > ", parent___.getElementsByTagName("font").length)
+            sobe = sobe - 1;
+            parent___ = parent___.parentElement;
+            
+        };
+        
+        var subs = parent___.getElementsByTagName("font");        
+
+        console.log(" >>> ", subs.length, " => ", parent___.tagName);
+
+        var meuId;
+        for (j=0; j<subs.length; j++) {
+            console.log("+++ ", subs[j].outerHTML, " -- x -- ", oro_key_col_[i].parentElement.outerHTML)
+            if (subs[j].outerHTML === oro_key_col_[i].parentElement.outerHTML) {
+                meuId = j;                
+                break
+            }
+        }
+
+        if (subs[meuId+1] && subs[meuId+1].innerText.length > 0) {
+            key_vals = key_vals + subs[meuId].innerText + "||>" + subs[meuId+1].innerText + "\n";
+        }
+        
+
+    }
+    console.log(key_vals);
+    return key_vals
+})();

@@ -19,13 +19,15 @@ type mensagem struct {
 }
 
 type apiConn struct {
-	linksMap    map[int]*ole.IDispatch
-	mutex       *sync.Mutex
-	perguntaCh  chan mensagem
-	respostaCh  chan interface{}
-	window      *ole.IDispatch
-	windowJsObj *ole.IDispatch
-	windowObj   *ole.IDispatch
+	linksMap     map[int]*ole.IDispatch
+	mutex        *sync.Mutex
+	perguntaCh   chan mensagem
+	respostaCh   chan interface{}
+	window       *ole.IDispatch
+	windowJsObj  *ole.IDispatch
+	windowObj    *ole.IDispatch
+	sidaIE       *ole.IDispatch
+	sidaIEWindow *ole.IDispatch
 }
 
 type Processo struct {
@@ -125,6 +127,26 @@ func (api *apiConn) paginaProcessoPatcheVaiProDownload(janID string, processo *P
 	}
 	resposta := <-api.respostaCh
 	return resposta.(bool)
+}
+
+func (api *apiConn) SIDAInit() bool {
+	Trace.Println("x SIDAInit")
+	api.perguntaCh <- mensagem{
+		tipo:    "SIDA_INIT_0",
+		payload: nil,
+	}
+	resposta := <-api.respostaCh
+	return resposta.(bool)
+}
+
+func (api *apiConn) SIDAConsultaProcesso(processo string) string {
+	Trace.Println("x SIDAInit")
+	api.perguntaCh <- mensagem{
+		tipo:    "SIDA_CONSULTA_PROCESSO_0",
+		payload: processo,
+	}
+	resposta := <-api.respostaCh
+	return resposta.(string)
 }
 
 func (api *apiConn) clicaParaGerarPDF(janID string, processo *Processo) bool {
@@ -598,7 +620,20 @@ func (api *apiConn) olePoolInicio() {
 			api.respostaCh <- respSalvar
 			Trace.Println("x")
 
+		case "SIDA_INIT_0":
+			Trace.Println("x Iniciando SIDA...")
+			api.mutex.Lock()
+			api.respostaCh <- SIDAjanelaInit(api)
+			api.mutex.Unlock()
+
+		case "SIDA_CONSULTA_PROCESSO_0":
+			Trace.Println("x Iniciando Consulta por Processo no SIDA...")
+			api.mutex.Lock()
+			api.respostaCh <- SIDAVaiPraConsulta(api, mensagem.payload.(string))
+			api.mutex.Unlock()
+
 		}
+
 	}
 }
 
@@ -609,6 +644,8 @@ func instantiateNewAPIConn() *apiConn {
 		&sync.Mutex{},
 		make(chan mensagem),
 		make(chan interface{}),
+		nil,
+		nil,
 		nil,
 		nil,
 		nil,

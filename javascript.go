@@ -417,7 +417,42 @@ const (
 
 	console.log(winbind.name)
 	window.open(lsURL, winbind.name);
-}();				
-				
+}();
 `
+
+	SidaKeyValuesConsulta = `(function() {
+		var oro_key_col_ = window.document.getElementsByTagName("b");
+		var key_vals = ""
+		for (i=0; i< oro_key_col_.length;i++) {
+			var parent___ = oro_key_col_[i];
+			var sobe = 4;
+			while (
+				(parent___.getElementsByTagName("font").length % 2 !== 0 || parent___.getElementsByTagName("font").length === 0) && 
+				sobe > 0 
+			) {
+
+				sobe = sobe - 1;
+				parent___ = parent___.parentElement;
+				
+			};
+			
+			var subs = parent___.getElementsByTagName("font");        
+	
+			var meuId;
+			for (j=0; j<subs.length; j++) {
+
+				if (subs[j].outerHTML === oro_key_col_[i].parentElement.outerHTML) {
+					meuId = j;                
+					break;
+				}
+			}
+	
+			if (subs[meuId+1] && subs[meuId+1].innerText.length > 0) {
+				key_vals = key_vals + subs[meuId].innerText + "||>" + subs[meuId+1].innerText + "\n";
+			}
+			
+	
+		}
+		return key_vals
+	})();`
 )
