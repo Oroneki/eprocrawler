@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/websocket"
 )
 
 type EprocessoData struct {
@@ -17,6 +19,29 @@ type EprocessoData struct {
 
 type PayloadDeleteResponse struct {
 	data map[string][]string
+}
+
+type WebSocketMessage struct {
+	Tipo    string `json:"tipo"`
+	Payload string `json:"payload"`
+}
+
+var upgrader = websocket.Upgrader{}
+
+func WebSocketHandle(api *apiConn) http.HandlerFunc {
+	Trace.Print("WS FUNC: montou")
+	return func(w http.ResponseWriter, r *http.Request) {
+		Trace.Print("WS FUNC: entrou")
+		// (w).Header().Set("Access-Control-Allow-Origin", "*")
+		// (w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		// (w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			Trace.Print("err upgrade:", err)
+			return
+		}
+		go websocketGoroutine(api, c)
+	}
 }
 
 func withData(data *EprocessoData) http.HandlerFunc {
@@ -166,12 +191,16 @@ func pesquisaSidaProcesso(api *apiConn) http.HandlerFunc {
 
 func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		Trace.Printf("sida ...")
+
 		(w).Header().Set("Access-Control-Allow-Origin", "*")
 		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 		if r.Method == "POST" {
+			Trace.Printf("post ...")
 			body, err := ioutil.ReadAll(r.Body)
 			if err != nil {
+				Trace.Printf("body ... %o", err)
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
 			}
@@ -217,11 +246,54 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 	http.HandleFunc("/initSida", initSidaHandler(api))                                   // set router
 	http.HandleFunc("/pesquisa_sida_processo", pesquisaSidaProcesso(api))                // set router
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
+	http.HandleFunc("/ws", WebSocketHandle(api))                                         // set router
 	Info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
 	Trace.Printf("\n-x")
 	err := http.ListenAndServe(":"+port, nil) // set listen port
 	Trace.Printf("\n-x")
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
+	}
+}
+
+func websocketGoroutine(api *apiConn, c *websocket.Conn) {
+	defer c.Close()
+	for {
+
+		msgType, msg, err := c.ReadMessage()
+		if err != nil {
+			Trace.Println("err read:", err)
+			break
+		}
+		Trace.Printf("raw msgType: %v", msgType)
+		Trace.Printf("raw msg: %v", msg)
+		Trace.Printf("pra string msg : %s   ", msg)
+
+		var obj WebSocketMessage
+		er := json.Unmarshal(msg, &obj)
+		if er != nil {
+			Trace.Printf("ERRO UNMARSHALL : %s   ", er)
+		}
+
+		Trace.Printf("pra string msg : %v   ", obj)
+		switch obj.Tipo {
+		case "sida_pesquisa":
+			Trace.Print("sida pesquisa")
+			processosArr := strings.Split(obj.Payload, ",")
+			api.SIDAInit()
+			for _, processo := range processosArr {
+				resp := api.SIDAConsultaProcesso(processo)
+				resp = resp + "processo||>" + processo + "\n"
+				jj, err := json.Marshal(WebSocketMessage{Tipo: "sida_resp", Payload: resp})
+				if err != nil {
+					Trace.Printf("ERRO MARSHALL : %s   ", err)
+				}
+				e := c.WriteMessage(msgType, jj)
+				if e != nil {
+					Trace.Println("err write:", e)
+					break
+				}
+			}
+		}
 	}
 }

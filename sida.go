@@ -117,3 +117,5 @@ func WaitIEWindow(ie *ole.IDispatch) {
 	}
 	time.Sleep(100 * time.Millisecond)
 }
+
+
