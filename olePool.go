@@ -281,7 +281,11 @@ func (api *apiConn) olePoolInicio() {
 
 			for i := 0; i < valConta; i++ {
 				Trace.Println("\n----\nitem", i)
-				item, _ := wins.CallMethod("Item", i)
+				item, e := wins.CallMethod("Item", i)
+				if e != nil {
+					Trace.Printf("\nitem %d miow\n--- continue ---", i)
+					continue
+				}
 				Trace.Println(" o")
 				itemd := item.ToIDispatch()
 				Trace.Printf(" \n            o    %#v", itemd)
