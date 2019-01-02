@@ -221,6 +221,7 @@ func main() {
 	var num_downloaders int
 	var baixarProcessos bool
 	var serveData bool
+	var sidaDesajuiza bool
 
 	Trace.Printf("-")
 
@@ -230,6 +231,7 @@ func main() {
 	flag.IntVar(&num_downloaders, "downloads", 5, `Número máximo de downloads simultâneos`)
 	flag.BoolVar(&baixarProcessos, "baixar", true, `Baixar Processos na Pasta Indicada em -pasta`)
 	flag.BoolVar(&serveData, "servir", false, `Servir dados`)
+	flag.BoolVar(&sidaDesajuiza, "sida_desajuiza", false, `Iniciar desajuizamento de varios`)
 
 	Trace.Printf("-")
 
@@ -241,8 +243,13 @@ func main() {
 
 	api := instantiateNewAPIConn()
 
-	api.janelaEprocesso()
-	api.patchWinPrincipal()
+	if sidaDesajuiza {
+		Trace.Printf("- sida")
+		api.grabSidaWindow()
+	} else {
+		api.janelaEprocesso()
+		api.patchWinPrincipal()
+	}
 
 	time.Sleep(100 * time.Millisecond)
 	wg := &sync.WaitGroup{}

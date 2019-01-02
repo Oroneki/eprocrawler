@@ -206,6 +206,15 @@ func (api *apiConn) getInitialJSONData() string {
 	return resposta.(string)
 }
 
+func (api *apiConn) grabSidaWindow() bool {
+	api.perguntaCh <- mensagem{
+		tipo:    "SIDA_DEZAJUIZA_GRAB_WINDOW",
+		payload: nil,
+	}
+	<-api.respostaCh
+	return true
+}
+
 // methods bootstrap ---------------------------------------------
 
 func (api *apiConn) olePoolInicio() {
@@ -635,6 +644,100 @@ func (api *apiConn) olePoolInicio() {
 			api.mutex.Lock()
 			api.respostaCh <- SIDAVaiPraConsulta(api, mensagem.payload.(string))
 			api.mutex.Unlock()
+
+		case "SIDA_DEZAJUIZA_GRAB_WINDOW":
+			Trace.Println("x")
+			api.mutex.Lock()
+			Trace.Println("x")
+			unknown, _ := oleutil.CreateObject("shell.Application")
+			Trace.Println("x")
+			shell, _ := unknown.QueryInterface(ole.IID_IDispatch)
+			Trace.Println("x")
+			windows, _ := shell.CallMethod("Windows")
+			Trace.Println("x")
+			wins := windows.ToIDispatch()
+			Trace.Println("x")
+			nois, _ := wins.GetProperty("Count")
+			Trace.Println("x")
+			valConta := int(nois.Val)
+			Trace.Printf("\n %d janelas identificadas.", valConta)
+			var re = regexp.MustCompile(`www\d?\.pgfn\.fazenda\/PGFN\/Milenio\/PrincipalFrames\.asp`)
+			Trace.Println("x")
+			var itemjanela *ole.IDispatch
+
+			for i := 0; i < valConta; i++ {
+				Trace.Println("\n-------------------------\n\nitem ", i, "\n\n")
+				item, e := wins.CallMethod("Item", i)
+				if e != nil {
+					Trace.Printf("\nitem %d miow\n--- continue ---", i)
+					continue
+				}
+				Trace.Println(" o")
+				itemd := item.ToIDispatch()
+				Trace.Printf(" \n            o    %#v", itemd)
+				locationURLV, err := itemd.GetProperty("LocationURL")
+				if err != nil {
+					Trace.Printf(" \n erro ao pegar url... continuar")
+					continue
+				}
+				Trace.Println(" item ", i, " URL ->", locationURLV)
+				urlV := locationURLV.Value()
+				Trace.Println(" o")
+				url := urlV.(string)
+				Trace.Println(" o")
+				Trace.Printf("\nJanela Identificada: (id: %d) %s", i, url)
+				Trace.Println(" o")
+
+				testeRegex := re.MatchString(url)
+				Trace.Println(" o")
+				if testeRegex {
+					Trace.Println(" o!")
+					Trace.Printf(`
+
+
+	+++++++++++++++++++++++++++++
+	++ IDENTIFICADA PELO REGEX ++
+	+++++++++++++++++++++++++++++
+
+	E-PROCESSO : (i: %d) 
+		URL: %s
+		
+
+		`, i, url)
+					itemjanela = itemd
+					Trace.Println(" o!")
+					// break
+				}
+			}
+			busy := oleutil.MustGetProperty(itemjanela, "Busy")
+			container := oleutil.MustGetProperty(itemjanela, "Container")
+			application := oleutil.MustGetProperty(itemjanela, "Application")
+			Info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
+				oleutil.MustGetProperty(itemjanela, "HWND").Value(),
+				busy.Value(),
+			)
+			Trace.Printf(`
+				Janela Internet Explorer:
+				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+				Busy              %v
+				Container:        %v
+				Application       %v
+				HWND              %v
+				name              %v
+				*****************************************************************************************	
+					`,
+				busy.Value(),
+				container.Value(),
+				application.Value(),
+				oleutil.MustGetProperty(itemjanela, "HWND").Value(),
+				oleutil.MustGetProperty(itemjanela, "Name").Value(),
+			)
+
+			Trace.Println("x")
+			api.window = itemjanela
+			Trace.Println("x")
+			api.mutex.Unlock()
+			api.respostaCh <- true
 
 		}
 
