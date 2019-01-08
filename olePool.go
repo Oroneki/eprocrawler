@@ -215,6 +215,16 @@ func (api *apiConn) grabSidaWindow() bool {
 	return true
 }
 
+func (api *apiConn) evalOnWindow(codeStr []byte) []byte {
+	api.perguntaCh <- mensagem{
+		tipo:    "EVAL_CODE",
+		payload: string(codeStr),
+	}
+	resposta := <-api.respostaCh
+	Info.Printf("evalOnWindow resp %T ||| %v", resposta, resposta)
+	return []byte(resposta.(string))
+}
+
 // methods bootstrap ---------------------------------------------
 
 func (api *apiConn) olePoolInicio() {
@@ -514,6 +524,21 @@ func (api *apiConn) olePoolInicio() {
 			api.mutex.Unlock()
 			// Trace.Println("x")
 			api.respostaCh <- true
+
+		case "EVAL_CODE":
+			pld := mensagem.payload.(string)
+			api.mutex.Lock()
+			res, err := oleutil.CallMethod(
+				api.windowJsObj,
+				"eval",
+				pld,
+			)
+			if err != nil {
+				Trace.Println("opa... erro no eval.")
+			}
+			api.mutex.Unlock()
+			Trace.Println("res -> %v", res)
+			api.respostaCh <- "teste-resposta"
 
 		case "CLICA_PRA_GERAR_PDF_0":
 			pld := mensagem.payload.(*SendJanProc)

@@ -222,6 +222,7 @@ func main() {
 	var baixarProcessos bool
 	var serveData bool
 	var sidaDesajuiza bool
+	var injectCode bool
 
 	Trace.Printf("-")
 
@@ -232,6 +233,7 @@ func main() {
 	flag.BoolVar(&baixarProcessos, "baixar", true, `Baixar Processos na Pasta Indicada em -pasta`)
 	flag.BoolVar(&serveData, "servir", false, `Servir dados`)
 	flag.BoolVar(&sidaDesajuiza, "sida_desajuiza", false, `Iniciar desajuizamento de varios`)
+	flag.BoolVar(&injectCode, "inject_code", false, `Injetar código no I.E.`)
 
 	Trace.Printf("-")
 

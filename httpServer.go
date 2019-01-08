@@ -189,6 +189,27 @@ func pesquisaSidaProcesso(api *apiConn) http.HandlerFunc {
 	}
 }
 
+func handleInject(api *apiConn) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			body, err := ioutil.ReadAll(r.Body)
+			Trace.Println("handleInject request info: \n%s\n", &r)
+			if err != nil {
+				http.Error(w, "Error reading request body",
+					http.StatusInternalServerError)
+			}
+			Trace.Println("handleInject")
+
+			res := api.evalOnWindow(body)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Write(res)
+		} else {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
 func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		Trace.Printf("sida ...")
@@ -240,11 +261,12 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 	http.Handle("/pdf/", corsMiddleware(http.StripPrefix("/pdf/", fsPdf)))
 	Trace.Printf("\n-x")
 	// Trace.Printf("\n\nDATA (serve api)%#v\n---\n-< do serveApi", data)
-	http.HandleFunc("/", handlerWithInitialTemplate(api, pdfPath, port))                 // set router
-	http.HandleFunc("/json", handlerWithInitialJson(api, pdfPath))                       // set router
-	http.HandleFunc("/deletefiles", deleteFilesHandler(pdfPath))                         // set router
-	http.HandleFunc("/initSida", initSidaHandler(api))                                   // set router
-	http.HandleFunc("/pesquisa_sida_processo", pesquisaSidaProcesso(api))                // set router
+	http.HandleFunc("/", handlerWithInitialTemplate(api, pdfPath, port))  // set router
+	http.HandleFunc("/json", handlerWithInitialJson(api, pdfPath))        // set router
+	http.HandleFunc("/deletefiles", deleteFilesHandler(pdfPath))          // set router
+	http.HandleFunc("/initSida", initSidaHandler(api))                    // set router
+	http.HandleFunc("/pesquisa_sida_processo", pesquisaSidaProcesso(api)) // set router
+	http.HandleFunc("/eval_js", handleInject(api))
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
 	http.HandleFunc("/ws", WebSocketHandle(api))                                         // set router
 	Info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
