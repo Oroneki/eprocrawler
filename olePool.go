@@ -18,6 +18,13 @@ type mensagem struct {
 	payload interface{}
 }
 
+type WindowIdentification int32
+
+const (
+	EPROCESSO_WINDOW WindowIdentification = 0
+	SIDA_WINDOW      WindowIdentification = 1
+)
+
 type apiConn struct {
 	linksMap     map[int]*ole.IDispatch
 	mutex        *sync.Mutex
@@ -215,6 +222,33 @@ func (api *apiConn) grabSidaWindow() bool {
 	return true
 }
 
+func (api *apiConn) waitForCondition(window WindowIdentification, condition string) bool {
+	Trace.Println("x api method...")
+	var msg mensagem
+	if window == SIDA_WINDOW {
+		Trace.Println("x tipo de mensagem eh sida")
+		msg = mensagem{
+			tipo:    "WAIT_FOR_CONDITION_ON_SIDA_WINDOW",
+			payload: condition,
+		}
+	} else if window == EPROCESSO_WINDOW {
+		msg = mensagem{
+			tipo:    "WAIT_FOR_CONDITION_ON_EPROCESSO_WINDOW",
+			payload: condition,
+		}
+	} else {
+		Trace.Println("x erro -- nao existe essa window")
+		return false
+	}
+	Trace.Println("x enviar mensagem")
+	api.perguntaCh <- msg
+	Trace.Println("x menagem voltou, mandar resposta...")
+	<-api.respostaCh
+	Trace.Println("x foi resposta...")
+	time.Sleep(100 * time.Millisecond)
+	return true
+}
+
 func (api *apiConn) evalOnWindow(codeStr []byte) []byte {
 	api.perguntaCh <- mensagem{
 		tipo:    "EVAL_CODE",
@@ -223,6 +257,38 @@ func (api *apiConn) evalOnWindow(codeStr []byte) []byte {
 	resposta := <-api.respostaCh
 	Info.Printf("evalOnWindow resp %T ||| %v", resposta, resposta)
 	return []byte(resposta.(string))
+}
+
+func (api *apiConn) evalOnSidaWindow(codeStr []byte) []byte {
+	api.perguntaCh <- mensagem{
+		tipo:    "EVAL_CODE_SIDA_WINDOW",
+		payload: string(codeStr),
+	}
+	resposta := <-api.respostaCh
+	Info.Printf("evalOnSIDAWindow resp %T ||| %v", resposta, resposta)
+	return []byte(resposta.(string))
+}
+
+func (api *apiConn) waitNotBusySidaWindow(window WindowIdentification) bool {
+	Trace.Printf("api.waitNotBusySidaWindow: args: %v", window)
+	api.perguntaCh <- mensagem{
+		tipo:    "WAIT_NOT_BUSY",
+		payload: window,
+	}
+	resposta := <-api.respostaCh
+	Info.Printf("evalOnSIDAWindow resp %T ||| %v", resposta, resposta)
+	return true
+}
+
+func (api *apiConn) getInscricoesFromSidaMulti() string {
+	Trace.Println("     getInscrições")
+	api.perguntaCh <- mensagem{
+		tipo:    "GET_INSC_FROM_SIDA_MULTI",
+		payload: nil,
+	}
+	resposta := <-api.respostaCh
+	Info.Printf("resposta json stringifado %T --> %v", resposta, resposta)
+	return resposta.(string)
 }
 
 // methods bootstrap ---------------------------------------------
@@ -282,11 +348,20 @@ func (api *apiConn) olePoolInicio() {
 			Trace.Println("x")
 			api.mutex.Lock()
 			Trace.Println("x")
-			unknown, _ := oleutil.CreateObject("shell.Application")
+			unknown, e := oleutil.CreateObject("shell.Application")
+			if e != nil {
+				Trace.Println("shell.Application não criada")
+			}
 			Trace.Println("x")
-			shell, _ := unknown.QueryInterface(ole.IID_IDispatch)
+			shell, e := unknown.QueryInterface(ole.IID_IDispatch)
+			if e != nil {
+				Trace.Println("query interface falha")
+			}
 			Trace.Println("x")
-			windows, _ := shell.CallMethod("Windows")
+			windows, e := shell.CallMethod("Windows")
+			if e != nil {
+				Trace.Println("metodo windows nao possivel de ser chamado...")
+			}
 			Trace.Println("x")
 			wins := windows.ToIDispatch()
 			Trace.Println("x")
@@ -308,7 +383,13 @@ func (api *apiConn) olePoolInicio() {
 				Trace.Println(" o")
 				itemd := item.ToIDispatch()
 				Trace.Printf(" \n            o    %#v", itemd)
-				locationURLV, _ := itemd.GetProperty("LocationURL")
+				locationURLV, e := itemd.GetProperty("LocationURL")
+				Trace.Printf(" \n----------------o    %#v", itemd)
+				if e != nil {
+					Trace.Println("janela sem LocationURL")
+					i++
+					continue
+				}
 				Trace.Println(" item ", i, " URL ->", locationURLV)
 				urlV := locationURLV.Value()
 				Trace.Println(" o")
@@ -338,9 +419,21 @@ func (api *apiConn) olePoolInicio() {
 					// break
 				}
 			}
-			busy := oleutil.MustGetProperty(itemjanela, "Busy")
-			container := oleutil.MustGetProperty(itemjanela, "Container")
-			application := oleutil.MustGetProperty(itemjanela, "Application")
+			busy, e := oleutil.GetProperty(itemjanela, "Busy")
+			if e != nil {
+				Trace.Println("busy nao deu certo")
+
+			}
+			container, e := oleutil.GetProperty(itemjanela, "Container")
+			if e != nil {
+				Trace.Println("busy nao deu certo")
+
+			}
+			application, e := oleutil.GetProperty(itemjanela, "Application")
+			if e != nil {
+				Trace.Println("busy nao deu certo")
+
+			}
 			Info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
 				oleutil.MustGetProperty(itemjanela, "HWND").Value(),
 				busy.Value(),
@@ -420,6 +513,9 @@ func (api *apiConn) olePoolInicio() {
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window._____OWNED____ = true;`)
 			Trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
+			// POLYFILLS --------------------------
+			// querySelector e QuerySelectorAll
+			oleutil.MustCallMethod(windowPrincipal, "eval", jsPolyfills)
 			Trace.Println("x")
 			api.mutex.Unlock()
 			Trace.Println("x")
@@ -535,10 +631,31 @@ func (api *apiConn) olePoolInicio() {
 			)
 			if err != nil {
 				Trace.Println("opa... erro no eval.")
+
 			}
+			Trace.Printf("res -> %v", res)
+
 			api.mutex.Unlock()
-			Trace.Println("res -> %v", res)
-			api.respostaCh <- "teste-resposta"
+
+			api.respostaCh <- "respos"
+
+		case "EVAL_CODE_SIDA_WINDOW":
+			pld := mensagem.payload.(string)
+			api.mutex.Lock()
+			res, err := oleutil.CallMethod(
+				api.sidaIEWindow,
+				"eval",
+				pld,
+			)
+			if err != nil {
+				Trace.Println("sida opa... erro no eval.")
+
+			}
+			Trace.Printf("sida res -> %v", res)
+
+			api.mutex.Unlock()
+
+			api.respostaCh <- "sida_respos"
 
 		case "CLICA_PRA_GERAR_PDF_0":
 			pld := mensagem.payload.(*SendJanProc)
@@ -668,6 +785,47 @@ func (api *apiConn) olePoolInicio() {
 			Trace.Println("x Iniciando Consulta por Processo no SIDA...")
 			api.mutex.Lock()
 			api.respostaCh <- SIDAVaiPraConsulta(api, mensagem.payload.(string))
+			api.mutex.Unlock()
+
+		case "WAIT_FOR_CONDITION_ON_SIDA_WINDOW":
+			Trace.Println("x waitf for sida condition")
+			api.mutex.Lock()
+			Trace.Println("x lock mutex")
+			waitForConditionOnIEWindow(api.sidaIEWindow, mensagem.payload.(string))
+			api.mutex.Unlock()
+			api.respostaCh <- true
+
+		case "WAIT_FOR_CONDITION_ON_EPROCESSO_WINDOW":
+			Trace.Println("x waitf for eproc condition")
+			api.mutex.Lock()
+			waitForConditionOnIEWindow(api.windowObj, mensagem.payload.(string))
+			api.mutex.Unlock()
+			api.respostaCh <- true
+
+		case "WAIT_NOT_BUSY":
+			Trace.Println("x wait not busy")
+			api.mutex.Lock()
+			//esperar todas :)
+			WaitIEWindow(api.sidaIE)
+			api.mutex.Unlock()
+			api.respostaCh <- true
+
+		case "GET_INSC_FROM_SIDA_MULTI":
+			Trace.Println("x GET_INSC_FROM_SIDA_MULTI")
+			api.mutex.Lock()
+			res, err := api.sidaIEWindow.CallMethod(
+				"eval",
+				`(function () {
+					return stringify();
+				  })();`,
+			)
+			if err != nil {
+				Trace.Println("x ERRO NA CHAMADA - GET_INSC_FROM_SIDA_MULTI")
+				Trace.Printf("x ERRO %v", err)
+			} else {
+				Trace.Printf("res --> %v | %v", res, res.Val)
+				api.respostaCh <- res.Value().(string) // string!
+			}
 			api.mutex.Unlock()
 
 		case "SIDA_DEZAJUIZA_GRAB_WINDOW":

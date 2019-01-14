@@ -111,11 +111,15 @@ func WaitIEWindow(ie *ole.IDispatch) {
 	for {
 		time.Sleep(250 * time.Millisecond)
 		Trace.Println("-")
-		if oleutil.MustGetProperty(ie, "Busy").Val == 0 {
+		try, err := oleutil.GetProperty(ie, "Busy")
+		if err != nil {
+			Trace.Println("ERRO! waitWindow - não pegou a propriedade Busy")
+			Trace.Printf("erro: %s", err)
+		}
+		if try.Val == 0 {
+			Trace.Println("Busy é 0 :)")
 			break
 		}
 	}
 	time.Sleep(100 * time.Millisecond)
 }
-
-

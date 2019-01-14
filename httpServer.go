@@ -169,6 +169,20 @@ func initSidaHandler(api *apiConn) http.HandlerFunc {
 	}
 }
 
+func abreSidaWindow(api *apiConn) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		Trace.Println("init Sida apenas")
+		resp := api.SIDAInit()
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if resp == true {
+			w.Write([]byte("ok"))
+		} else {
+			w.Write([]byte("erro"))
+		}
+	}
+}
+
 func pesquisaSidaProcesso(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
@@ -210,6 +224,27 @@ func handleInject(api *apiConn) http.HandlerFunc {
 	}
 }
 
+func handleInjectSidaWindow(api *apiConn) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			body, err := ioutil.ReadAll(r.Body)
+			Trace.Println("handleInject request info: \n%s\n", &r)
+			if err != nil {
+				http.Error(w, "Error reading request body",
+					http.StatusInternalServerError)
+			}
+			Trace.Println("handleInject")
+
+			res := api.evalOnSidaWindow(body)
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Write(res)
+		} else {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
 func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		Trace.Printf("sida ...")
@@ -233,7 +268,74 @@ func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 			for _, processo := range arrProcs {
 				// element is the element from someSlice for where we are
 				resp := api.SIDAConsultaProcesso(processo)
+
+				// TEMP --------------------------------------------------
+				if strings.Contains(resp, "FORAM LOCALIZADAS") {
+					Trace.Printf("processo %s tem mais de uma inscrição.", processo)
+					api.waitForCondition(SIDA_WINDOW, `(function () {
+						return document.getElementsByTagName('img').length > 0;
+						})();`)
+					Trace.Printf("processo %s [ 0]", processo)
+					api.evalOnSidaWindow([]byte("function abrirJanela(href) {window.navigate(href);}"))
+					Trace.Printf("processo %s [ 1]", processo)
+					api.evalOnSidaWindow([]byte(jsPolyfills))
+					Trace.Printf("processo %s [ 2] injetou polyfillss", processo)
+					api.evalOnSidaWindow([]byte(`var arraYImages = document.querySelectorAll('img');
+					arraYImages[arraYImages.length - 2].click();`))
+					Trace.Printf("processo %s [ 3] clickou ?", processo)
+					api.waitForCondition(SIDA_WINDOW, "document.getElementById('formatoHtml').checked === true")
+					Trace.Printf("processo %s [ 4] avaliou true a condição ?", processo)
+					api.evalOnSidaWindow([]byte(`window.print = function () {
+						return undefined;
+						};`))
+					api.evalOnSidaWindow([]byte("document.getElementsByTagName('img')['ok'].click();"))
+					api.waitForCondition(SIDA_WINDOW, `(function () {
+							window.print = function () {
+								return undefined;
+								};
+								
+								var tables = document.getElementsByTagName('table');
+								var i__;
+								
+								for (i__ = 0; i__ < tables.length; i__++) {
+									if (tables[i__].className === "Cabecalho") {
+										return true;
+									}
+								}
+								
+								return false;
+								})();`)
+					Trace.Printf("processo %s [ 5] chegou no final... ?", processo)
+					api.waitNotBusySidaWindow(SIDA_WINDOW)
+					Trace.Printf("processo %s [ 6] chegou no final... ?", processo)
+					api.evalOnSidaWindow([]byte(jsPolyfills))
+					Trace.Printf("processo %s [ 7] chegou no final... ?", processo)
+					api.evalOnSidaWindow([]byte(jsPolyfillShimInjectScript))
+					Trace.Printf("\n\nprocesso %s [ 8] VERIFICAR ?", processo)
+					api.waitNotBusySidaWindow(SIDA_WINDOW)
+					api.waitForCondition(SIDA_WINDOW, `(function () {
+						try {
+						  var arr__ = Array.from(document.querySelectorAll('td')).filter(function (a) {
+							return a === 1;
+						  });
+						} catch (e) {
+						  return false;
+						}
+					  
+						return true;
+					  })();`)
+					Trace.Printf("\n\nprocesso %s [ 9] ???? ?\n\n", processo)
+					api.evalOnSidaWindow([]byte(jsSidaGetInscInfo))
+					api.evalOnSidaWindow([]byte(JSUnicodeHandle))
+					Trace.Printf("\n\nprocesso %s [10] injetou... \nchamar stringify()\n", processo)
+					jsonStr := api.getInscricoesFromSidaMulti()
+					Trace.Printf("\n\nprocesso %s [11] JSON: %s\n", processo, jsonStr)
+					resp = resp + "_MULTI_||>" + jsonStr + "\n"
+					Trace.Printf("processo %s [20] chegou no final... ?", processo)
+				}
+
 				respostaFinal = respostaFinal + "###" + processo + "$$$" + resp
+
 			}
 
 			w.Write([]byte(respostaFinal))
@@ -267,6 +369,8 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 	http.HandleFunc("/initSida", initSidaHandler(api))                    // set router
 	http.HandleFunc("/pesquisa_sida_processo", pesquisaSidaProcesso(api)) // set router
 	http.HandleFunc("/eval_js", handleInject(api))
+	http.HandleFunc("/eval_sida_window_js", handleInjectSidaWindow(api))
+	http.HandleFunc("/abre_sida_window", abreSidaWindow(api))
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
 	http.HandleFunc("/ws", WebSocketHandle(api))                                         // set router
 	Info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
