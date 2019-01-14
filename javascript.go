@@ -1,7 +1,7 @@
 package main
 
 const (
-	JSconsole = `window.__TYEMPKHGFJHGFJGFJGFJHGFURYDUYBN__ = function(){
+	jJSconsole = `window.__TYEMPKHGFJHGFJGFJGFJHGFURYDUYBN__ = function(){
 		if (window.console) {
 		  console.log('ja tem console');
 		  return;		
@@ -789,74 +789,74 @@ const (
 	`
 
 	jsSidaGetInscInfo = `
-	var allInfo = document.querySelectorAll('td').map(function (t) {
-		var isDivisor = Array.from(t.children).map(function (n) {
-		  return n.tagName.toLowerCase();
-		}).some(function (a) {
-		  return a === "hr";
-		});
-	  
-		if (isDivisor) {
-		  return 'DIVIDE';
-		}
-	  
-		return t;
-	  });
-	  
-	  var reducerFn = function (acc, atu) {
-		var acc_ = acc;
-	  
-		if (atu === "DIVIDE") {
-		  acc_.arr.push([]);
-		  acc_.i++;
-		  return acc_;
-		}
-	  
-		acc_.arr[acc_.i].push(atu);
-		return acc_;
-	  };
-	  
-	  var final = allInfo.reduce(reducerFn, {
-		i: 0,
-		arr: [[]]
-	  });
-	  console.log("allinfo", allInfo);
-	  console.log(final.i, final, final.arr.length);
-	  var filtrado = final['arr'].filter(function (a) {
-		return a[0].innerText.includes("Devedor");
-	  });
-	  console.log(filtrado.length);
-	  
-	  var arrToObj = function (arr) {
-		var tuplas = arr.map(function (td) {
-		  var children = Array.from(td.children).map(function (h) {
-			return h.innerText;
-		  })[0];
-		  console.log(' > ', children);
-		  return [children ? children.replace(':', '').trim() : null, td.innerText && td.innerText.replace(children, '').trim()];
-		});
-		var ultimo = tuplas.reduce(function (acc, atu) {
-		  if (!atu[0]) {
-			return acc;
-		  }
-	  
-		  acc_ = acc;
-		  acc_[atu[0]] = atu[1];
-		  console.log('red:  ', atu);
-		  return acc_;
-		}, {});
-		return ultimo;
-	  };
-	  
-	  var transfObj = filtrado.map(function (m) {
-		return arrToObj(m);
-	  });
-	  console.log('arrTobj rsult', transfObj);
-	  
-	  var stringify = function () {
-		var jjj = JSON.stringify(transfObj);
-		console.log(jjj);
-		return jjj;
-	  };
+	var allInfo__INJECTED = document.querySelectorAll('td').map(function (t) {
+    var isDivisor = Array.from(t.children).map(function (n) {
+        return n.tagName.toLowerCase();
+    }).some(function (a) {
+        return a === "hr";
+    });
+
+    if (isDivisor) {
+        return 'DIVIDE';
+    }
+
+    return t;
+});
+
+
+
+var reducerFn_INJECTED = function (acc, atu) {
+    var acc_ = acc;
+
+    if (atu === "DIVIDE") {
+        acc_.arr.push([]);
+        acc_.i++;
+        return acc_;
+    }
+
+    acc_.arr[acc_.i].push(atu);
+    return acc_;
+};
+
+var final_INJECTED = allInfo__INJECTED.reduce(reducerFn_INJECTED, {
+    i: 0,
+    arr: [[]]
+});
+
+var filtrado_INJECTED = final_INJECTED['arr'].filter(function (a) {
+    return a[0].innerText.includes("Devedor");
+});
+
+var arrToObj_INJECTED = function (arr) {
+    var tuplas = arr.map(function (td) {
+        var children = Array.from(td.children).map(function (h) {
+            return h.innerText;
+        })[0];
+
+        return [children ? children.replace(':', '').trim() : null, td.innerText && td.innerText.replace(children, '').trim()];
+    });
+    var ultimo = tuplas.reduce(function (acc, atu) {
+        if (!atu[0]) {
+            return acc;
+        }
+
+        acc_ = acc;
+        acc_[atu[0]] = atu[1];
+
+        return acc_;
+    }, {});
+    return ultimo;
+};
+
+var transfObj_INJECTED = filtrado_INJECTED.map(function (m) {
+    return arrToObj_INJECTED(m);
+});
+
+
+var stringify_INJECTED = function () {
+    var jjj = JSON.stringify(transfObj_INJECTED);
+
+    return jjj;
+};
 	`
 )

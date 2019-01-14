@@ -76,7 +76,7 @@ func (api *apiConn) queryInterface(iun *ole.IUnknown) *ole.IDispatch {
 }
 
 func (api *apiConn) janelaEprocesso() bool {
-	Trace.Println("x")
+	trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "JANELAEPROCESSO",
 		payload: nil,
@@ -97,7 +97,7 @@ func (api *apiConn) sendProcessosDaJanelaToChannel(ch chan *Processo) int {
 }
 
 func (api *apiConn) patchWinPrincipal() bool {
-	Trace.Println("x")
+	trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "PATCHWINDOWPRINCIPAL",
 		payload: nil,
@@ -107,7 +107,7 @@ func (api *apiConn) patchWinPrincipal() bool {
 }
 
 func (api *apiConn) abreProcesso(janID string, processo *Processo) bool {
-	Trace.Println("x")
+	trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "ABREPROCESSO_0",
 		payload: &SendJanProc{janID, processo},
@@ -117,7 +117,7 @@ func (api *apiConn) abreProcesso(janID string, processo *Processo) bool {
 }
 
 func (api *apiConn) paginaProcessoCarregou(janID string, processo *Processo) bool {
-	Trace.Println("x")
+	trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "TESTA_PAGINAPROCESSOCARREGOU",
 		payload: &SendJanProc{janID, processo},
@@ -127,7 +127,7 @@ func (api *apiConn) paginaProcessoCarregou(janID string, processo *Processo) boo
 }
 
 func (api *apiConn) paginaProcessoPatcheVaiProDownload(janID string, processo *Processo) bool {
-	Trace.Println("x")
+	trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "TESTA_PAGINAPROCESSOPATCH_VAI_PRO_DOWNLOAD",
 		payload: &SendJanProc{janID, processo},
@@ -137,7 +137,7 @@ func (api *apiConn) paginaProcessoPatcheVaiProDownload(janID string, processo *P
 }
 
 func (api *apiConn) SIDAInit() bool {
-	Trace.Println("x SIDAInit")
+	trace.Println("x SIDAInit")
 	api.perguntaCh <- mensagem{
 		tipo:    "SIDA_INIT_0",
 		payload: nil,
@@ -147,7 +147,7 @@ func (api *apiConn) SIDAInit() bool {
 }
 
 func (api *apiConn) SIDAConsultaProcesso(processo string) string {
-	Trace.Println("x SIDAInit")
+	trace.Println("x SIDAInit")
 	api.perguntaCh <- mensagem{
 		tipo:    "SIDA_CONSULTA_PROCESSO_0",
 		payload: processo,
@@ -157,7 +157,7 @@ func (api *apiConn) SIDAConsultaProcesso(processo string) string {
 }
 
 func (api *apiConn) clicaParaGerarPDF(janID string, processo *Processo) bool {
-	Trace.Println("x")
+	trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "CLICA_PRA_GERAR_PDF_0",
 		payload: &SendJanProc{janID, processo},
@@ -223,10 +223,10 @@ func (api *apiConn) grabSidaWindow() bool {
 }
 
 func (api *apiConn) waitForCondition(window WindowIdentification, condition string) bool {
-	Trace.Println("x api method...")
+	trace.Println("x api method...")
 	var msg mensagem
 	if window == SIDA_WINDOW {
-		Trace.Println("x tipo de mensagem eh sida")
+		trace.Println("x tipo de mensagem eh sida")
 		msg = mensagem{
 			tipo:    "WAIT_FOR_CONDITION_ON_SIDA_WINDOW",
 			payload: condition,
@@ -237,14 +237,14 @@ func (api *apiConn) waitForCondition(window WindowIdentification, condition stri
 			payload: condition,
 		}
 	} else {
-		Trace.Println("x erro -- nao existe essa window")
+		trace.Println("x erro -- nao existe essa window")
 		return false
 	}
-	Trace.Println("x enviar mensagem")
+	trace.Println("x enviar mensagem")
 	api.perguntaCh <- msg
-	Trace.Println("x menagem voltou, mandar resposta...")
+	trace.Println("x menagem voltou, mandar resposta...")
 	<-api.respostaCh
-	Trace.Println("x foi resposta...")
+	trace.Println("x foi resposta...")
 	time.Sleep(100 * time.Millisecond)
 	return true
 }
@@ -255,7 +255,7 @@ func (api *apiConn) evalOnWindow(codeStr []byte) []byte {
 		payload: string(codeStr),
 	}
 	resposta := <-api.respostaCh
-	Info.Printf("evalOnWindow resp %T ||| %v", resposta, resposta)
+	info.Printf("evalOnWindow resp %T ||| %v", resposta, resposta)
 	return []byte(resposta.(string))
 }
 
@@ -265,59 +265,59 @@ func (api *apiConn) evalOnSidaWindow(codeStr []byte) []byte {
 		payload: string(codeStr),
 	}
 	resposta := <-api.respostaCh
-	Info.Printf("evalOnSIDAWindow resp %T ||| %v", resposta, resposta)
+	info.Printf("evalOnSIDAWindow resp %T ||| %v", resposta, resposta)
 	return []byte(resposta.(string))
 }
 
 func (api *apiConn) waitNotBusySidaWindow(window WindowIdentification) bool {
-	Trace.Printf("api.waitNotBusySidaWindow: args: %v", window)
+	trace.Printf("api.waitNotBusySidaWindow: args: %v", window)
 	api.perguntaCh <- mensagem{
 		tipo:    "WAIT_NOT_BUSY",
 		payload: window,
 	}
 	resposta := <-api.respostaCh
-	Info.Printf("evalOnSIDAWindow resp %T ||| %v", resposta, resposta)
+	info.Printf("evalOnSIDAWindow resp %T ||| %v", resposta, resposta)
 	return true
 }
 
 func (api *apiConn) getInscricoesFromSidaMulti() string {
-	Trace.Println("     getInscrições")
+	trace.Println("     getInscrições")
 	api.perguntaCh <- mensagem{
 		tipo:    "GET_INSC_FROM_SIDA_MULTI",
 		payload: nil,
 	}
 	resposta := <-api.respostaCh
-	Info.Printf("resposta json stringifado %T --> %v", resposta, resposta)
+	info.Printf("resposta json stringifado %T --> %v", resposta, resposta)
 	return resposta.(string)
 }
 
 // methods bootstrap ---------------------------------------------
 
 func (api *apiConn) olePoolInicio() {
-	Trace.Println("x Inicio Pool")
+	trace.Println("x Inicio Pool")
 	runtime.LockOSThread()
-	Trace.Println("x")
+	trace.Println("x")
 	err := ole.CoInitialize(0)
-	Trace.Println("x")
+	trace.Println("x")
 	if err != nil {
-		Trace.Println("x Erro")
+		trace.Println("x Erro")
 		oleerr := err.(*ole.OleError)
 		// S_FALSE           = 0x00000001 // CoInitializeEx was already called on this thread
 		if oleerr.Code() != ole.S_OK && oleerr.Code() != 0x00000001 {
-			Info.Println(err)
-			Trace.Println(err)
+			info.Println(err)
+			trace.Println(err)
 		}
 	} else {
 		// Only invoke CoUninitialize if the thread was not initizlied before.
 		// This will allow other go packages based on go-ole play along
 		// with this library.
-		Trace.Println("x Tranquilo")
+		trace.Println("x Tranquilo")
 		defer ole.CoUninitialize()
 	}
 
 	var regexHrefLinkProcesso = regexp.MustCompile(`\'.*?\'`)
 	for mensagem := range api.perguntaCh {
-		Trace.Printf(`
+		trace.Printf(`
 ============================================================================
 	Mensagem:
 	| TIPO: 	%s
@@ -345,64 +345,64 @@ func (api *apiConn) olePoolInicio() {
 			api.respostaCh <- id
 
 		case "JANELAEPROCESSO":
-			Trace.Println("x")
+			trace.Println("x")
 			api.mutex.Lock()
-			Trace.Println("x")
+			trace.Println("x")
 			unknown, e := oleutil.CreateObject("shell.Application")
 			if e != nil {
-				Trace.Println("shell.Application não criada")
+				trace.Println("shell.Application não criada")
 			}
-			Trace.Println("x")
+			trace.Println("x")
 			shell, e := unknown.QueryInterface(ole.IID_IDispatch)
 			if e != nil {
-				Trace.Println("query interface falha")
+				trace.Println("query interface falha")
 			}
-			Trace.Println("x")
+			trace.Println("x")
 			windows, e := shell.CallMethod("Windows")
 			if e != nil {
-				Trace.Println("metodo windows nao possivel de ser chamado...")
+				trace.Println("metodo windows nao possivel de ser chamado...")
 			}
-			Trace.Println("x")
+			trace.Println("x")
 			wins := windows.ToIDispatch()
-			Trace.Println("x")
+			trace.Println("x")
 			nois, _ := wins.GetProperty("Count")
-			Trace.Println("x")
+			trace.Println("x")
 			valConta := int(nois.Val)
-			Trace.Printf("\n %d janelas identificadas.", valConta)
+			trace.Printf("\n %d janelas identificadas.", valConta)
 			var re = regexp.MustCompile(`eprocesso\.suiterfb\.receita\.fazenda\/ControleAcessarCaixaTrabalho.*?apresentarPagina`)
-			Trace.Println("x")
+			trace.Println("x")
 			var itemjanela *ole.IDispatch
 
 			for i := 0; i < valConta; i++ {
-				Trace.Println("\n----\nitem", i)
+				trace.Println("\n----\nitem", i)
 				item, e := wins.CallMethod("Item", i)
 				if e != nil {
-					Trace.Printf("\nitem %d miow\n--- continue ---", i)
+					trace.Printf("\nitem %d miow\n--- continue ---", i)
 					continue
 				}
-				Trace.Println(" o")
+				trace.Println(" o")
 				itemd := item.ToIDispatch()
-				Trace.Printf(" \n            o    %#v", itemd)
+				trace.Printf(" \n            o    %#v", itemd)
 				locationURLV, e := itemd.GetProperty("LocationURL")
-				Trace.Printf(" \n----------------o    %#v", itemd)
+				trace.Printf(" \n----------------o    %#v", itemd)
 				if e != nil {
-					Trace.Println("janela sem LocationURL")
+					trace.Println("janela sem LocationURL")
 					i++
 					continue
 				}
-				Trace.Println(" item ", i, " URL ->", locationURLV)
+				trace.Println(" item ", i, " URL ->", locationURLV)
 				urlV := locationURLV.Value()
-				Trace.Println(" o")
+				trace.Println(" o")
 				url := urlV.(string)
-				Trace.Println(" o")
-				Trace.Printf("\nJanela Identificada: (id: %d) %s", i, url)
-				Trace.Println(" o")
+				trace.Println(" o")
+				trace.Printf("\nJanela Identificada: (id: %d) %s", i, url)
+				trace.Println(" o")
 
 				testeRegex := re.MatchString(url)
-				Trace.Println(" o")
+				trace.Println(" o")
 				if testeRegex {
-					Trace.Println(" o!")
-					Trace.Printf(`
+					trace.Println(" o!")
+					trace.Printf(`
 
 
 	+++++++++++++++++++++++++++++
@@ -415,30 +415,30 @@ func (api *apiConn) olePoolInicio() {
 
 		`, i, url)
 					itemjanela = itemd
-					Trace.Println(" o!")
+					trace.Println(" o!")
 					// break
 				}
 			}
 			busy, e := oleutil.GetProperty(itemjanela, "Busy")
 			if e != nil {
-				Trace.Println("busy nao deu certo")
+				trace.Println("busy nao deu certo")
 
 			}
 			container, e := oleutil.GetProperty(itemjanela, "Container")
 			if e != nil {
-				Trace.Println("busy nao deu certo")
+				trace.Println("busy nao deu certo")
 
 			}
 			application, e := oleutil.GetProperty(itemjanela, "Application")
 			if e != nil {
-				Trace.Println("busy nao deu certo")
+				trace.Println("busy nao deu certo")
 
 			}
-			Info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
+			info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
 				oleutil.MustGetProperty(itemjanela, "HWND").Value(),
 				busy.Value(),
 			)
-			Trace.Printf(`
+			trace.Printf(`
 				Janela Internet Explorer:
 				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				Busy              %v
@@ -455,70 +455,70 @@ func (api *apiConn) olePoolInicio() {
 				oleutil.MustGetProperty(itemjanela, "Name").Value(),
 			)
 
-			Trace.Println("x")
+			trace.Println("x")
 			api.window = itemjanela
-			Trace.Println("x")
+			trace.Println("x")
 			api.mutex.Unlock()
 			api.respostaCh <- true
 
 		case "PATCHWINDOWPRINCIPAL":
 			api.mutex.Lock()
-			Trace.Println("x")
+			trace.Println("x")
 			iePrincipalD := api.window
-			Trace.Println("x iePrincipalD -->", iePrincipalD)
+			trace.Println("x iePrincipalD -->", iePrincipalD)
 			iePrincipalDocumentV, _ := iePrincipalD.GetProperty("Document")
-			Trace.Println("x")
+			trace.Println("x")
 			iePrincipalDocumentD := iePrincipalDocumentV.ToIDispatch()
-			Trace.Println("x")
+			trace.Println("x")
 			title := oleutil.MustGetProperty(iePrincipalDocumentD, "title").ToIDispatch()
-			Trace.Println("  title: ", title)
+			trace.Println("  title: ", title)
 			windowPrincipal := oleutil.MustGetProperty(iePrincipalDocumentD, "parentWindow").ToIDispatch()
-			Trace.Println("x")
+			trace.Println("x")
 			api.windowJsObj = windowPrincipal
 			variant, err := oleutil.CallMethod(windowPrincipal, "eval", `_____OWNED____`)
 			if err != nil {
-				Trace.Printf("[X] nao tem owned. PATCH WINDOW!!! ")
+				trace.Printf("[X] nao tem owned. PATCH WINDOW!!! ")
 			} else {
-				Trace.Printf("Janela já ta OWNED, seguir e liberar o mytex e o canal")
+				trace.Printf("Janela já ta OWNED, seguir e liberar o mytex e o canal")
 				api.mutex.Unlock()
-				Trace.Println("x")
+				trace.Println("x")
 				api.respostaCh <- true
-				Trace.Println("x")
+				trace.Println("x")
 				break
 
 			}
-			Trace.Println("x")
+			trace.Println("x")
 			variantVal := variant.Value()
-			Trace.Println("variantVal", variantVal)
-			oleutil.MustCallMethod(windowPrincipal, "eval", JSconsole)
-			Trace.Println("x")
+			trace.Println("variantVal", variantVal)
+			oleutil.MustCallMethod(windowPrincipal, "eval", jJSconsole)
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window.oro_obj = {};`)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JShackedobj)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSabrirJanela)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSpatchInicial)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JStestLoadPagina)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSUnicodeHandle)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSgetJsonData)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", JSjqueryStringify)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `window._____OWNED____ = true;`)
-			Trace.Println("x")
+			trace.Println("x")
 			oleutil.MustCallMethod(windowPrincipal, "eval", `console.log('owned->', window._____OWNED____);`)
 			// POLYFILLS --------------------------
 			// querySelector e QuerySelectorAll
 			oleutil.MustCallMethod(windowPrincipal, "eval", jsPolyfills)
-			Trace.Println("x")
+			trace.Println("x")
 			api.mutex.Unlock()
-			Trace.Println("x")
+			trace.Println("x")
 
 			api.respostaCh <- true
 
@@ -556,7 +556,7 @@ func (api *apiConn) olePoolInicio() {
 					api.linksMap[resp] = linkaD
 					go func(p *Processo) {
 						canalDeProcessos <- p
-						Trace.Printf("\n + Microrotina encaminhou processo %v pro canal.\n", p)
+						trace.Printf("\n + Microrotina encaminhou processo %v pro canal.\n", p)
 					}(&Processo{resp, processo})
 					resp++
 				}
@@ -600,11 +600,11 @@ func (api *apiConn) olePoolInicio() {
 			api.mutex.Unlock()
 			if e != nil {
 				api.respostaCh <- false
-				Trace.Printf("\n%s - ERRO na chamada da pagina de carregamento do processo\n", janid)
+				trace.Printf("\n%s - ERRO na chamada da pagina de carregamento do processo\n", janid)
 			} else {
 				resp := areaNodeList.Value().(bool)
 				api.respostaCh <- resp
-				Trace.Printf("\n\n%s - Resposta do carregamento da pagina do processo: %v\n\n", janid, resp)
+				trace.Printf("\n\n%s - Resposta do carregamento da pagina do processo: %v\n\n", janid, resp)
 			}
 
 		case "TESTA_PAGINAPROCESSOPATCH_VAI_PRO_DOWNLOAD":
@@ -630,10 +630,10 @@ func (api *apiConn) olePoolInicio() {
 				pld,
 			)
 			if err != nil {
-				Trace.Println("opa... erro no eval.")
+				trace.Println("opa... erro no eval.")
 
 			}
-			Trace.Printf("res -> %v", res)
+			trace.Printf("res -> %v", res)
 
 			api.mutex.Unlock()
 
@@ -648,10 +648,10 @@ func (api *apiConn) olePoolInicio() {
 				pld,
 			)
 			if err != nil {
-				Trace.Println("sida opa... erro no eval.")
+				trace.Println("sida opa... erro no eval.")
 
 			}
-			Trace.Printf("sida res -> %v", res)
+			trace.Printf("sida res -> %v", res)
 
 			api.mutex.Unlock()
 
@@ -690,17 +690,17 @@ func (api *apiConn) olePoolInicio() {
 			api.respostaCh <- res.Value().(bool)
 
 		case "PEGA_HREF_STRING_OR_NOT_0":
-			Trace.Printf("-")
+			trace.Printf("-")
 			pld := mensagem.payload.(*SendJanProc)
-			Trace.Printf("-")
+			trace.Printf("-")
 			janid := pld.janid
-			Trace.Printf("-")
+			trace.Printf("-")
 			// processo := pld.processo
-			Trace.Printf("-")
+			trace.Printf("-")
 
 			api.mutex.Lock()
 			// Trace.Println("x")
-			Trace.Printf("-")
+			trace.Printf("-")
 
 			res := oleutil.MustCallMethod(
 				api.windowJsObj,
@@ -708,19 +708,19 @@ func (api *apiConn) olePoolInicio() {
 				fmt.Sprintf(`window.get_download_href_or_false("%s")`,
 					janid),
 			)
-			Trace.Printf("-")
+			trace.Printf("-")
 
 			api.mutex.Unlock()
-			Trace.Printf("-")
+			trace.Printf("-")
 
 			resposta := res.Value()
-			Trace.Printf("-")
+			trace.Printf("-")
 
 			// Trace.Printf("\n%T -> %v\n", resposta, resposta)
-			Trace.Printf("-")
+			trace.Printf("-")
 
 			api.respostaCh <- resposta
-			Trace.Printf("-")
+			trace.Printf("-")
 
 		case "GET_COOKIES_0":
 			// pld := mensagem.payload.(*SendJanProc)
@@ -742,18 +742,18 @@ func (api *apiConn) olePoolInicio() {
 			// pld := mensagem.payload.(*SendJanProc)
 			// janid := pld.janid
 			// processo := pld.processo
-			Trace.Println("x getJsonData")
+			trace.Println("x getJsonData")
 			api.mutex.Lock()
-			Trace.Println("x")
-			Trace.Printf(`
+			trace.Println("x")
+			trace.Printf(`
 				api.windowJsObj -> %#v;
 				`, api.windowJsObj)
 			var res1 *ole.VARIANT
 			for {
-				Trace.Println(" -- loop -- ")
+				trace.Println(" -- loop -- ")
 				res1, err = api.windowJsObj.CallMethod("eval", `window.getJsonData();`)
 				if err != nil {
-					Trace.Printf("%#v", err)
+					trace.Printf("%#v", err)
 					time.Sleep(100 * time.Millisecond)
 					continue
 				}
@@ -762,9 +762,9 @@ func (api *apiConn) olePoolInicio() {
 
 			// Trace.Printf("%#v \n %T \n", res1, res1)
 			api.mutex.Unlock()
-			Trace.Println("x")
+			trace.Println("x")
 			resposta := res1.Value()
-			Trace.Printf("\n %#v", resposta)
+			trace.Printf("\n %#v", resposta)
 			respSalvar := resposta.(string)
 			// d1 := []byte(respSalvar)
 			// e := ioutil.WriteFile("jsonstr.json", d1, 0666)
@@ -773,37 +773,37 @@ func (api *apiConn) olePoolInicio() {
 			// }
 			// Info.Printf("\n%T -> %v\n", resposta, resposta)
 			api.respostaCh <- respSalvar
-			Trace.Println("x")
+			trace.Println("x")
 
 		case "SIDA_INIT_0":
-			Trace.Println("x Iniciando SIDA...")
+			trace.Println("x Iniciando SIDA...")
 			api.mutex.Lock()
-			api.respostaCh <- SIDAjanelaInit(api)
+			api.respostaCh <- sSIDAjanelaInit(api)
 			api.mutex.Unlock()
 
 		case "SIDA_CONSULTA_PROCESSO_0":
-			Trace.Println("x Iniciando Consulta por Processo no SIDA...")
+			trace.Println("x Iniciando Consulta por Processo no SIDA...")
 			api.mutex.Lock()
-			api.respostaCh <- SIDAVaiPraConsulta(api, mensagem.payload.(string))
+			api.respostaCh <- sSIDAVaiPraConsulta(api, mensagem.payload.(string))
 			api.mutex.Unlock()
 
 		case "WAIT_FOR_CONDITION_ON_SIDA_WINDOW":
-			Trace.Println("x waitf for sida condition")
+			trace.Println("x waitf for sida condition")
 			api.mutex.Lock()
-			Trace.Println("x lock mutex")
+			trace.Println("x lock mutex")
 			waitForConditionOnIEWindow(api.sidaIEWindow, mensagem.payload.(string))
 			api.mutex.Unlock()
 			api.respostaCh <- true
 
 		case "WAIT_FOR_CONDITION_ON_EPROCESSO_WINDOW":
-			Trace.Println("x waitf for eproc condition")
+			trace.Println("x waitf for eproc condition")
 			api.mutex.Lock()
 			waitForConditionOnIEWindow(api.windowObj, mensagem.payload.(string))
 			api.mutex.Unlock()
 			api.respostaCh <- true
 
 		case "WAIT_NOT_BUSY":
-			Trace.Println("x wait not busy")
+			trace.Println("x wait not busy")
 			api.mutex.Lock()
 			//esperar todas :)
 			WaitIEWindow(api.sidaIE)
@@ -811,71 +811,73 @@ func (api *apiConn) olePoolInicio() {
 			api.respostaCh <- true
 
 		case "GET_INSC_FROM_SIDA_MULTI":
-			Trace.Println("x GET_INSC_FROM_SIDA_MULTI")
+			trace.Println("x GET_INSC_FROM_SIDA_MULTI")
 			api.mutex.Lock()
 			res, err := api.sidaIEWindow.CallMethod(
 				"eval",
 				`(function () {
-					return stringify();
+					return stringify_INJECTED();
 				  })();`,
 			)
 			if err != nil {
-				Trace.Println("x ERRO NA CHAMADA - GET_INSC_FROM_SIDA_MULTI")
-				Trace.Printf("x ERRO %v", err)
+				trace.Println("x ERRO NA CHAMADA - GET_INSC_FROM_SIDA_MULTI")
+				trace.Printf("x ERRO %v", err)
+				api.respostaCh <- "erro"
+				panic(err)
 			} else {
-				Trace.Printf("res --> %v | %v", res, res.Val)
+				trace.Printf("res --> %v | %v", res, res.Val)
 				api.respostaCh <- res.Value().(string) // string!
 			}
 			api.mutex.Unlock()
 
 		case "SIDA_DEZAJUIZA_GRAB_WINDOW":
-			Trace.Println("x")
+			trace.Println("x")
 			api.mutex.Lock()
-			Trace.Println("x")
+			trace.Println("x")
 			unknown, _ := oleutil.CreateObject("shell.Application")
-			Trace.Println("x")
+			trace.Println("x")
 			shell, _ := unknown.QueryInterface(ole.IID_IDispatch)
-			Trace.Println("x")
+			trace.Println("x")
 			windows, _ := shell.CallMethod("Windows")
-			Trace.Println("x")
+			trace.Println("x")
 			wins := windows.ToIDispatch()
-			Trace.Println("x")
+			trace.Println("x")
 			nois, _ := wins.GetProperty("Count")
-			Trace.Println("x")
+			trace.Println("x")
 			valConta := int(nois.Val)
-			Trace.Printf("\n %d janelas identificadas.", valConta)
+			trace.Printf("\n %d janelas identificadas.", valConta)
 			var re = regexp.MustCompile(`www\d?\.pgfn\.fazenda\/PGFN\/Milenio\/PrincipalFrames\.asp`)
-			Trace.Println("x")
+			trace.Println("x")
 			var itemjanela *ole.IDispatch
 
 			for i := 0; i < valConta; i++ {
-				Trace.Println("\n-------------------------\n\nitem ", i, "\n\n")
+				trace.Println("\n-------------------------\n\nitem ", i, "\n\n")
 				item, e := wins.CallMethod("Item", i)
 				if e != nil {
-					Trace.Printf("\nitem %d miow\n--- continue ---", i)
+					trace.Printf("\nitem %d miow\n--- continue ---", i)
 					continue
 				}
-				Trace.Println(" o")
+				trace.Println(" o")
 				itemd := item.ToIDispatch()
-				Trace.Printf(" \n            o    %#v", itemd)
+				trace.Printf(" \n            o    %#v", itemd)
 				locationURLV, err := itemd.GetProperty("LocationURL")
 				if err != nil {
-					Trace.Printf(" \n erro ao pegar url... continuar")
+					trace.Printf(" \n erro ao pegar url... continuar")
 					continue
 				}
-				Trace.Println(" item ", i, " URL ->", locationURLV)
+				trace.Println(" item ", i, " URL ->", locationURLV)
 				urlV := locationURLV.Value()
-				Trace.Println(" o")
+				trace.Println(" o")
 				url := urlV.(string)
-				Trace.Println(" o")
-				Trace.Printf("\nJanela Identificada: (id: %d) %s", i, url)
-				Trace.Println(" o")
+				trace.Println(" o")
+				trace.Printf("\nJanela Identificada: (id: %d) %s", i, url)
+				trace.Println(" o")
 
 				testeRegex := re.MatchString(url)
-				Trace.Println(" o")
+				trace.Println(" o")
 				if testeRegex {
-					Trace.Println(" o!")
-					Trace.Printf(`
+					trace.Println(" o!")
+					trace.Printf(`
 
 
 	+++++++++++++++++++++++++++++
@@ -888,18 +890,18 @@ func (api *apiConn) olePoolInicio() {
 
 		`, i, url)
 					itemjanela = itemd
-					Trace.Println(" o!")
+					trace.Println(" o!")
 					// break
 				}
 			}
 			busy := oleutil.MustGetProperty(itemjanela, "Busy")
 			container := oleutil.MustGetProperty(itemjanela, "Container")
 			application := oleutil.MustGetProperty(itemjanela, "Application")
-			Info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
+			info.Printf(`Janela Internet Explorer identificada: HWND %v Busy: %v`,
 				oleutil.MustGetProperty(itemjanela, "HWND").Value(),
 				busy.Value(),
 			)
-			Trace.Printf(`
+			trace.Printf(`
 				Janela Internet Explorer:
 				+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 				Busy              %v
@@ -916,9 +918,9 @@ func (api *apiConn) olePoolInicio() {
 				oleutil.MustGetProperty(itemjanela, "Name").Value(),
 			)
 
-			Trace.Println("x")
+			trace.Println("x")
 			api.window = itemjanela
-			Trace.Println("x")
+			trace.Println("x")
 			api.mutex.Unlock()
 			api.respostaCh <- true
 
@@ -928,7 +930,7 @@ func (api *apiConn) olePoolInicio() {
 }
 
 func instantiateNewAPIConn() *apiConn {
-	Trace.Println("x")
+	trace.Println("x")
 	apInst := apiConn{
 		make(map[int]*ole.IDispatch),
 		&sync.Mutex{},
@@ -940,8 +942,8 @@ func instantiateNewAPIConn() *apiConn {
 		nil,
 		nil,
 	}
-	Trace.Println("x")
+	trace.Println("x")
 	go apInst.olePoolInicio()
-	Trace.Println("x")
+	trace.Println("x")
 	return &apInst
 }

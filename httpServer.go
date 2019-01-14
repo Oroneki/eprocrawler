@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type EprocessoData struct {
+type eprocessoData struct {
 	Data map[string]map[string]string
 	Port string
 	// str  string
@@ -29,41 +29,41 @@ type WebSocketMessage struct {
 var upgrader = websocket.Upgrader{}
 
 func WebSocketHandle(api *apiConn) http.HandlerFunc {
-	Trace.Print("WS FUNC: montou")
+	trace.Print("WS FUNC: montou")
 	return func(w http.ResponseWriter, r *http.Request) {
-		Trace.Print("WS FUNC: entrou")
+		trace.Print("WS FUNC: entrou")
 		// (w).Header().Set("Access-Control-Allow-Origin", "*")
 		// (w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		// (w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 		c, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
-			Trace.Print("err upgrade:", err)
+			trace.Print("err upgrade:", err)
 			return
 		}
 		go websocketGoroutine(api, c)
 	}
 }
 
-func withData(data *EprocessoData) http.HandlerFunc {
+func withData(data *eprocessoData) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		t := template.Must(template.ParseFiles("front_build/index.html"))
 		// Trace.Printf("\n\n\n\nTEMPLATE:\n%#v\n\n<- do template\n", data)
 		e := t.Execute(w, data)
 		if e != nil {
-			Info.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error)
-			Trace.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error)
+			info.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error())
+			trace.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error())
 		}
 	}
 }
 
 func handlerWithInitialTemplate(api *apiConn, pasta_down string, port string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		Trace.Printf("-")
+		trace.Printf("-")
 		var data map[string]map[string]string
-		Trace.Printf("\n-x pegar dados do api pra o servidor")
+		trace.Printf("\n-x pegar dados do api pra o servidor")
 		api.patchWinPrincipal()
-		Trace.Printf("-")
+		trace.Printf("-")
 		strData := api.getInitialJSONData()
 		// Trace.Printf("\nString Retornada do api\n%#v\n\n\n", strData)
 		// Trace.Printf("\nmap antes\n%#v\n\n\n", data)
@@ -71,61 +71,61 @@ func handlerWithInitialTemplate(api *apiConn, pasta_down string, port string) ht
 		// Trace.Printf("\ndata bytes\n%#v\n\n\n", dataBytes)
 		err := json.Unmarshal(dataBytes, &data)
 		if err != nil {
-			Trace.Println("Erro no Unmarshall", err)
-			Trace.Println(data)
+			trace.Println("Erro no Unmarshall", err)
+			trace.Println(data)
 		}
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		data["__META__"]["pasta_download"] = pasta_down
 
-		Trace.Printf("\n-x")
+		trace.Printf("\n-x")
 		t := template.Must(template.ParseFiles("front_build/index.html"))
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		// Trace.Printf("\n\n\n\nTEMPLATE:\n%#v\n\n<- do template\n", data)
 
-		e := t.Execute(w, &EprocessoData{data, port})
-		Trace.Printf("-")
+		e := t.Execute(w, &eprocessoData{data, port})
+		trace.Printf("-")
 
 		if e != nil {
-			Info.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error)
-			Trace.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error)
+			info.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error())
+			trace.Printf("\n\n\nERRO no parse: %#v\n%#v\n", e, e.Error())
 		}
-		Trace.Printf("-")
+		trace.Printf("-")
 
 	}
 }
 
 func handlerWithInitialJson(api *apiConn, pasta_down string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		Trace.Printf("-")
+		trace.Printf("-")
 		var data map[string]map[string]string
-		Trace.Printf("-")
+		trace.Printf("-")
 
-		Trace.Printf("\n-x pegar dados do api pra o servidor")
+		trace.Printf("\n-x pegar dados do api pra o servidor")
 		api.patchWinPrincipal()
-		Trace.Printf("-")
+		trace.Printf("-")
 		strData := api.getInitialJSONData()
-		Trace.Printf("-")
+		trace.Printf("-")
 		json.Unmarshal([]byte(strData), &data)
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		data["__META__"]["pasta_download"] = pasta_down
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		bytejson, _ := json.Marshal(data)
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		// Trace.Printf("\n%#v", strData)
 		w.Header().Set("Content-Type", "application/json")
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		Trace.Printf("-")
+		trace.Printf("-")
 
 		w.Write(bytejson)
-		Trace.Printf("-")
-		Trace.Printf("\n-x")
+		trace.Printf("-")
+		trace.Printf("\n-x")
 	}
 }
 
@@ -138,14 +138,14 @@ func deleteFilesHandler(pasta_down string) http.HandlerFunc {
 					http.StatusInternalServerError)
 			}
 			ok, errado := apagarArquivos(pasta_down, string(body))
-			Trace.Println("Apagar arquivos handler... ok?", ok)
+			trace.Println("Apagar arquivos handler... ok?", ok)
 			var mapa = make(map[string][]string)
 			mapa["certo"] = ok
 			mapa["errado"] = errado
-			Trace.Println("MAPA\n", mapa)
+			trace.Println("MAPA\n", mapa)
 			arrBytes, err := json.Marshal(mapa)
 			if err != nil {
-				Trace.Println("nao fez o []bytes :(")
+				trace.Println("nao fez o []bytes :(")
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -171,7 +171,7 @@ func initSidaHandler(api *apiConn) http.HandlerFunc {
 
 func abreSidaWindow(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		Trace.Println("init Sida apenas")
+		trace.Println("init Sida apenas")
 		resp := api.SIDAInit()
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -192,7 +192,7 @@ func pesquisaSidaProcesso(api *apiConn) http.HandlerFunc {
 					http.StatusInternalServerError)
 			}
 			processo := string(body)
-			Trace.Println("processo no handler (body)\n", processo)
+			trace.Println("processo no handler (body)\n", processo)
 			resp := api.SIDAConsultaProcesso(processo)
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -207,12 +207,12 @@ func handleInject(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			body, err := ioutil.ReadAll(r.Body)
-			Trace.Println("handleInject request info: \n%s\n", &r)
+			trace.Printf("handleInject request info: \n%s", &r)
 			if err != nil {
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
 			}
-			Trace.Println("handleInject")
+			trace.Println("handleInject")
 
 			res := api.evalOnWindow(body)
 			w.Header().Set("Content-Type", "application/json")
@@ -228,12 +228,12 @@ func handleInjectSidaWindow(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			body, err := ioutil.ReadAll(r.Body)
-			Trace.Println("handleInject request info: \n%s\n", &r)
+			trace.Printf("handleInject request info: \n%s", &r)
 			if err != nil {
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
 			}
-			Trace.Println("handleInject")
+			trace.Println("handleInject")
 
 			res := api.evalOnSidaWindow(body)
 			w.Header().Set("Content-Type", "application/json")
@@ -247,21 +247,21 @@ func handleInjectSidaWindow(api *apiConn) http.HandlerFunc {
 
 func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		Trace.Printf("sida ...")
+		trace.Printf("sida ...")
 
 		(w).Header().Set("Access-Control-Allow-Origin", "*")
 		(w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		(w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 		if r.Method == "POST" {
-			Trace.Printf("post ...")
+			trace.Printf("post ...")
 			body, err := ioutil.ReadAll(r.Body)
 			if err != nil {
-				Trace.Printf("body ... %o", err)
+				trace.Printf("body ... %o", err)
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
 			}
 			processos := string(body)
-			Trace.Println("processos no handler (body)\n", processos)
+			trace.Println("processos no handler (body)\n", processos)
 			arrProcs := strings.Split(processos, "|")
 			respostaFinal := ""
 			api.SIDAInit()
@@ -271,20 +271,20 @@ func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 
 				// TEMP --------------------------------------------------
 				if strings.Contains(resp, "FORAM LOCALIZADAS") {
-					Trace.Printf("processo %s tem mais de uma inscrição.", processo)
+					trace.Printf("processo %s tem mais de uma inscrição.", processo)
 					api.waitForCondition(SIDA_WINDOW, `(function () {
 						return document.getElementsByTagName('img').length > 0;
 						})();`)
-					Trace.Printf("processo %s [ 0]", processo)
+					trace.Printf("processo %s [ 0]", processo)
 					api.evalOnSidaWindow([]byte("function abrirJanela(href) {window.navigate(href);}"))
-					Trace.Printf("processo %s [ 1]", processo)
+					trace.Printf("processo %s [ 1]", processo)
 					api.evalOnSidaWindow([]byte(jsPolyfills))
-					Trace.Printf("processo %s [ 2] injetou polyfillss", processo)
+					trace.Printf("processo %s [ 2] injetou polyfillss", processo)
 					api.evalOnSidaWindow([]byte(`var arraYImages = document.querySelectorAll('img');
 					arraYImages[arraYImages.length - 2].click();`))
-					Trace.Printf("processo %s [ 3] clickou ?", processo)
+					trace.Printf("processo %s [ 3] clickou ?", processo)
 					api.waitForCondition(SIDA_WINDOW, "document.getElementById('formatoHtml').checked === true")
-					Trace.Printf("processo %s [ 4] avaliou true a condição ?", processo)
+					trace.Printf("processo %s [ 4] avaliou true a condição ?", processo)
 					api.evalOnSidaWindow([]byte(`window.print = function () {
 						return undefined;
 						};`))
@@ -305,13 +305,13 @@ func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 								
 								return false;
 								})();`)
-					Trace.Printf("processo %s [ 5] chegou no final... ?", processo)
+					trace.Printf("processo %s [ 5] chegou no final... ?", processo)
 					api.waitNotBusySidaWindow(SIDA_WINDOW)
-					Trace.Printf("processo %s [ 6] chegou no final... ?", processo)
+					trace.Printf("processo %s [ 6] chegou no final... ?", processo)
 					api.evalOnSidaWindow([]byte(jsPolyfills))
-					Trace.Printf("processo %s [ 7] chegou no final... ?", processo)
+					trace.Printf("processo %s [ 7] chegou no final... ?", processo)
 					api.evalOnSidaWindow([]byte(jsPolyfillShimInjectScript))
-					Trace.Printf("\n\nprocesso %s [ 8] VERIFICAR ?", processo)
+					trace.Printf("\n\nprocesso %s [ 8] VERIFICAR ?", processo)
 					api.waitNotBusySidaWindow(SIDA_WINDOW)
 					api.waitForCondition(SIDA_WINDOW, `(function () {
 						try {
@@ -324,14 +324,14 @@ func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 					  
 						return true;
 					  })();`)
-					Trace.Printf("\n\nprocesso %s [ 9] ???? ?\n\n", processo)
+					trace.Printf("\n\nprocesso %s [ 9] ???? ?\n\n", processo)
 					api.evalOnSidaWindow([]byte(jsSidaGetInscInfo))
 					api.evalOnSidaWindow([]byte(JSUnicodeHandle))
-					Trace.Printf("\n\nprocesso %s [10] injetou... \nchamar stringify()\n", processo)
+					trace.Printf("\n\nprocesso %s [10] injetou... \nchamar stringify()\n", processo)
 					jsonStr := api.getInscricoesFromSidaMulti()
-					Trace.Printf("\n\nprocesso %s [11] JSON: %s\n", processo, jsonStr)
+					trace.Printf("\n\nprocesso %s [11] JSON: %s\n", processo, jsonStr)
 					resp = resp + "_MULTI_||>" + jsonStr + "\n"
-					Trace.Printf("processo %s [20] chegou no final... ?", processo)
+					trace.Printf("processo %s [20] chegou no final... ?", processo)
 				}
 
 				respostaFinal = respostaFinal + "###" + processo + "$$$" + resp
@@ -353,15 +353,15 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func serveHttp(api *apiConn, pdfPath string, port string) {
-	Trace.Printf("\n-x")
+	trace.Printf("\n-x")
 	fs := http.FileServer(http.Dir("front_build/static/"))
-	Trace.Printf("\n-x")
+	trace.Printf("\n-x")
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
-	Trace.Printf("\n-File Server")
+	trace.Printf("\n-File Server")
 	fsPdf := http.FileServer(http.Dir(pdfPath))
-	Trace.Printf("\n-x")
+	trace.Printf("\n-x")
 	http.Handle("/pdf/", corsMiddleware(http.StripPrefix("/pdf/", fsPdf)))
-	Trace.Printf("\n-x")
+	trace.Printf("\n-x")
 	// Trace.Printf("\n\nDATA (serve api)%#v\n---\n-< do serveApi", data)
 	http.HandleFunc("/", handlerWithInitialTemplate(api, pdfPath, port))  // set router
 	http.HandleFunc("/json", handlerWithInitialJson(api, pdfPath))        // set router
@@ -373,10 +373,10 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 	http.HandleFunc("/abre_sida_window", abreSidaWindow(api))
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
 	http.HandleFunc("/ws", WebSocketHandle(api))                                         // set router
-	Info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
-	Trace.Printf("\n-x")
+	info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
+	trace.Printf("\n-x")
 	err := http.ListenAndServe(":"+port, nil) // set listen port
-	Trace.Printf("\n-x")
+	trace.Printf("\n-x")
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}
@@ -388,23 +388,23 @@ func websocketGoroutine(api *apiConn, c *websocket.Conn) {
 
 		msgType, msg, err := c.ReadMessage()
 		if err != nil {
-			Trace.Println("err read:", err)
+			trace.Println("err read:", err)
 			break
 		}
-		Trace.Printf("raw msgType: %v", msgType)
-		Trace.Printf("raw msg: %v", msg)
-		Trace.Printf("pra string msg : %s   ", msg)
+		trace.Printf("raw msgType: %v", msgType)
+		trace.Printf("raw msg: %v", msg)
+		trace.Printf("pra string msg : %s   ", msg)
 
 		var obj WebSocketMessage
 		er := json.Unmarshal(msg, &obj)
 		if er != nil {
-			Trace.Printf("ERRO UNMARSHALL : %s   ", er)
+			trace.Printf("ERRO UNMARSHALL : %s   ", er)
 		}
 
-		Trace.Printf("pra string msg : %v   ", obj)
+		trace.Printf("pra string msg : %v   ", obj)
 		switch obj.Tipo {
 		case "sida_pesquisa":
-			Trace.Print("sida pesquisa")
+			trace.Print("sida pesquisa")
 			processosArr := strings.Split(obj.Payload, ",")
 			api.SIDAInit()
 			for _, processo := range processosArr {
@@ -412,11 +412,11 @@ func websocketGoroutine(api *apiConn, c *websocket.Conn) {
 				resp = resp + "processo||>" + processo + "\n"
 				jj, err := json.Marshal(WebSocketMessage{Tipo: "sida_resp", Payload: resp})
 				if err != nil {
-					Trace.Printf("ERRO MARSHALL : %s   ", err)
+					trace.Printf("ERRO MARSHALL : %s   ", err)
 				}
 				e := c.WriteMessage(msgType, jj)
 				if e != nil {
-					Trace.Println("err write:", e)
+					trace.Println("err write:", e)
 					break
 				}
 			}

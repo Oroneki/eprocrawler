@@ -9,7 +9,7 @@ import (
 
 func waitForConditionOnIEWindow(ie *ole.IDispatch, condition string) {
 	init := time.Now()
-	Trace.Println("    waitForConditionOnIEWindow")
+	trace.Println("    waitForConditionOnIEWindow")
 	for {
 		ok, err := oleutil.CallMethod(ie, "eval", condition)
 		if err != nil {
@@ -29,5 +29,5 @@ func waitForConditionOnIEWindow(ie *ole.IDispatch, condition string) {
 	}
 	final := time.Since(init)
 	time.Sleep(100 * time.Millisecond)
-	Trace.Printf("    esperou condição por [%s]", final)
+	trace.Printf("    esperou condição por [%s]", final)
 }

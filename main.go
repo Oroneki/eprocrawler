@@ -12,7 +12,7 @@ import (
 	// "github.com/scjalliance/comshim"
 )
 
-var nomesDeJanela [10]string = [10]string{
+var nomesDeJanela = [10]string{
 	"_____JANELINHA_____ZERO______",
 	"_____JANELINHA______UM_______",
 	"_____JANELINHA_____DOIS______",
@@ -25,31 +25,31 @@ var nomesDeJanela [10]string = [10]string{
 	"_____JANELINHA_____NOVE______",
 }
 
-type Janelinha struct {
+type janelinha struct {
 	id               string
 	oleAPI           *apiConn
 	entradaProcessos <-chan *Processo
 	waitGroup        *sync.WaitGroup
-	downloadChannel  chan *DownloadPayload
+	downloadChannel  chan *downloadPayload
 }
 
-type DownloadInfo struct {
+type downloadInfo struct {
 	processo string
 	bytes    uint64
 	// total
 }
 
-func (j *Janelinha) init(dst string) {
+func (j *janelinha) init(dst string) {
 	// runtime.LockOSThread()
-	Trace.Printf("\n Iniciando Janelinha %v", j.id)
+	trace.Printf("\n Iniciando Janelinha %v", j.id)
 	for processo := range j.entradaProcessos {
 		filepath := processoPath(dst, processo.numStrImpuro)
-		Trace.Printf("\n------\nJanelinha %v com processo %v (%s)", j.id, processo.numStrImpuro, filepath)
+		trace.Printf("\n------\nJanelinha %v com processo %v (%s)", j.id, processo.numStrImpuro, filepath)
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
-			Trace.Printf("\nBaixar: %s", filepath)
+			trace.Printf("\nBaixar: %s", filepath)
 			j.oleAPI.abreProcesso(j.id, processo)
 			time.Sleep(900 * time.Millisecond)
-			Trace.Printf(" %v - %v-0", j.id, processo.numStrImpuro)
+			trace.Printf(" %v - %v-0", j.id, processo.numStrImpuro)
 			for {
 				testa := j.oleAPI.paginaProcessoCarregou(j.id, processo)
 				if testa {
@@ -59,7 +59,7 @@ func (j *Janelinha) init(dst string) {
 				time.Sleep(500 * time.Millisecond)
 				// fmt.Printf(" %v - %v-1", j.id, processo.numStrImpuro)
 			}
-			Trace.Printf("\n Carregou ¨¨¨¨ %s ¨¨¨¨ %v", j.id, processo.numStrImpuro)
+			trace.Printf("\n Carregou ¨¨¨¨ %s ¨¨¨¨ %v", j.id, processo.numStrImpuro)
 			time.Sleep(500 * time.Millisecond)
 			// time.Sleep(2 * time.Second)
 			j.oleAPI.paginaProcessoPatcheVaiProDownload(j.id, processo)
@@ -73,7 +73,7 @@ func (j *Janelinha) init(dst string) {
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
-			Trace.Printf("\n Carregou+++ ¨¨¨¨ %s ¨¨¨¨ %v", j.id, processo.numStrImpuro)
+			trace.Printf("\n Carregou+++ ¨¨¨¨ %s ¨¨¨¨ %v", j.id, processo.numStrImpuro)
 			time.Sleep(500 * time.Millisecond)
 			j.oleAPI.clicaParaGerarPDF(j.id, processo)
 
@@ -81,104 +81,104 @@ func (j *Janelinha) init(dst string) {
 				href := j.oleAPI.getHrefStringOrNot(j.id, processo)
 				if len(href) > 10 {
 					// Trace.Println("\n\n\nHREF encontrado")
-					Trace.Println(href)
+					trace.Println(href)
 					// MANDA GOROTINA DO DOWNLOAD
 					cookies := j.oleAPI.getCookies()
 					// Trace.Println("\n%s", cookies)
-					j.downloadChannel <- &DownloadPayload{
+					j.downloadChannel <- &downloadPayload{
 						cookieStr: cookies,
 						titlePDF:  href,
 						dst:       filepath,
 					}
-					Trace.Printf("\n%s enviado ao canal", href)
+					trace.Printf("\n%s enviado ao canal", href)
 					break
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
 			time.Sleep(1 * time.Second)
 		} else {
-			Trace.Printf("\nArquivo já existe: %s", filepath)
+			trace.Printf("\nArquivo já existe: %s", filepath)
 			j.waitGroup.Done()
 		}
-		Trace.Printf("Fim do loop do processo %v (%s)", processo.numStrImpuro, filepath)
+		trace.Printf("Fim do loop do processo %v (%s)", processo.numStrImpuro, filepath)
 
 	}
-	Trace.Printf("%s - die!", j.id)
+	trace.Printf("%s - die!", j.id)
 }
 
-func startDownloader(id int, ch chan *DownloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan DownloadInfo) {
-	Trace.Printf("\nIniciando Downloader %d ", id)
+func startDownloader(id int, ch chan *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo) {
+	trace.Printf("\nIniciando Downloader %d ", id)
 	for payload := range ch {
-		Trace.Printf("\nDownloader %d recebeu download %s", id, payload.titlePDF)
-		Downloader(payload, wg, cc, ci)
+		trace.Printf("\nDownloader %d recebeu download %s", id, payload.titlePDF)
+		downloader(payload, wg, cc, ci)
 	}
 }
 
 func esperarDownloads(wg *sync.WaitGroup) {
 	wg.Wait()
-	Info.Println(`
+	info.Println(`
 ===========================================================================
 		Todos os processos enviados para download
 ===========================================================================`)
-	Trace.Println(` === Todos os processos enviados para download === apos o wg.Wait()`)
+	trace.Println(` === Todos os processos enviados para download === apos o wg.Wait()`)
 }
 
-func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinhas int, num_downloaders int, api *apiConn, wg *sync.WaitGroup) {
+func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas int, numDownloaders int, api *apiConn, wg *sync.WaitGroup) {
 	// runtime.LockOSThread()
 
-	Trace.Printf("-")
+	trace.Printf("-")
 
 	_, err := os.Stat(diretorioDownload)
 	if err != nil {
-		Trace.Panicf(`Diretório %s não válido.`, diretorioDownload)
+		trace.Panicf(`Diretório %s não válido.`, diretorioDownload)
 	}
-	Trace.Printf("-")
+	trace.Printf("-")
 
-	Trace.Printf(`
+	trace.Printf(`
 -------------------------------------------------------------------------------
 	Diretório de Download: %s
 	Janelas Simultâneas: %d		Downloads Simultâneos: %d
 -------------------------------------------------------------------------------
-`, diretorioDownload, num_janelinhas, num_downloaders)
-	Trace.Printf("-")
+`, diretorioDownload, numJanelinhas, numDownloaders)
+	trace.Printf("-")
 
 	chP := make(chan *Processo)
-	chDownload := make(chan *DownloadPayload)
+	chDownload := make(chan *downloadPayload)
 	chDownloadComplete := make(chan bool)
-	chDownloadInfo := make(chan DownloadInfo)
-	Trace.Printf("-")
+	chDownloadInfo := make(chan downloadInfo)
+	trace.Printf("-")
 	// api := instantiateNewAPIConn()
 
 	num_procs := api.sendProcessosDaJanelaToChannel(chP)
 	wg.Add(num_procs)
-	Trace.Printf("-")
-	if num_downloaders > 10 {
-		num_downloaders = 10
+	trace.Printf("-")
+	if numDownloaders > 10 {
+		numDownloaders = 10
 	}
-	Trace.Printf("-")
-	for i := 0; i < num_downloaders; i++ {
+	trace.Printf("-")
+	for i := 0; i < numDownloaders; i++ {
 		go startDownloader(i, chDownload, wg, chDownloadComplete, chDownloadInfo)
 	}
-	Trace.Printf("-")
-	if num_janelinhas > 10 {
-		num_janelinhas = 10
+	trace.Printf("-")
+	if numJanelinhas > 10 {
+		numJanelinhas = 10
 	}
-	Trace.Printf("-")
-	for i := 0; i < num_janelinhas; i++ {
-		jan := Janelinha{nomesDeJanela[i], api, chP, wg, chDownload}
+	trace.Printf("-")
+	for i := 0; i < numJanelinhas; i++ {
+		jan := janelinha{nomesDeJanela[i], api, chP, wg, chDownload}
 		go jan.init(diretorioDownload)
 	}
-	Trace.Printf("-")
-	Info.Printf(" * %d processos encontrados na página * ", num_procs)
-	Trace.Printf("%d processos encontrados na página", num_procs)
-	Trace.Printf("-")
+	trace.Printf("-")
+	info.Printf(" * %d processos encontrados na página * ", num_procs)
+	trace.Printf("%d processos encontrados na página", num_procs)
+	trace.Printf("-")
 
 	go DownloadReporter(chDownloadInfo)
 
 	for index := 0; index < num_procs; index++ {
 		<-chDownloadComplete
-		Info.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
-		Trace.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
+		info.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
+		trace.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
 	}
 
 	close(chP)
@@ -186,11 +186,11 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, num_janelinha
 	close(chDownloadComplete)
 	close(chDownloadInfo)
 
-	Info.Printf("\nFim dos downloads :)")
+	info.Printf("\nFim dos downloads :)")
 
 }
 
-func DownloadReporter(ch chan DownloadInfo) {
+func DownloadReporter(ch chan downloadInfo) {
 	dados := make(map[string]uint64)
 	for {
 		pld, more := <-ch
@@ -207,12 +207,12 @@ func DownloadReporter(ch chan DownloadInfo) {
 		// time.Sleep(200 * time.Millisecond)
 
 	}
-	Trace.Println("Encerrando DownloadReporter")
+	trace.Println("Encerrando DownloadReporter")
 }
 
 func main() {
 
-	SetUpLoggers(os.Stderr, os.Stdout)
+	setUpLoggers(os.Stderr, os.Stdout)
 	defaultDownloadFolder := getUserHomeDir() + `\Downloads\`
 
 	var diretorioDownload string
@@ -224,7 +224,7 @@ func main() {
 	var sidaDesajuiza bool
 	var injectCode bool
 
-	Trace.Printf("-")
+	trace.Printf("-")
 
 	flag.StringVar(&diretorioDownload, "pasta", defaultDownloadFolder, `Pasta de Destino dos Processos Baixados`)
 	flag.StringVar(&portServer, "porta", "9090", `Porta do Servidor`)
@@ -235,7 +235,7 @@ func main() {
 	flag.BoolVar(&sidaDesajuiza, "sida_desajuiza", false, `Iniciar desajuizamento de varios`)
 	flag.BoolVar(&injectCode, "inject_code", false, `Injetar código no I.E.`)
 
-	Trace.Printf("-")
+	trace.Printf("-")
 
 	if !strings.HasSuffix(diretorioDownload, `\`) {
 		diretorioDownload = diretorioDownload + `\`
@@ -243,10 +243,28 @@ func main() {
 
 	flag.Parse()
 
+	trace.Printf(`
+diretorioDownload -->  %v
+portServer -->  %v
+num_janelinhas -->  %v
+num_downloaders -->  %v
+baixarProcessos -->  %v
+serveData -->  %v
+sidaDesajuiza -->  %v
+injectCode -->  %v
+	`, diretorioDownload,
+		portServer,
+		num_janelinhas,
+		num_downloaders,
+		baixarProcessos,
+		serveData,
+		sidaDesajuiza,
+		injectCode)
+
 	api := instantiateNewAPIConn()
 
 	if sidaDesajuiza {
-		Trace.Printf("- sida")
+		trace.Printf("- sida")
 		api.grabSidaWindow()
 	} else {
 		api.janelaEprocesso()
@@ -257,12 +275,12 @@ func main() {
 	wg := &sync.WaitGroup{}
 
 	if baixarProcessos {
-		Trace.Printf(">")
+		trace.Printf(">")
 		go baixarProcessosDoEprocessoPrincipal(diretorioDownload, num_janelinhas, num_downloaders, api, wg)
 	}
 
 	if serveData {
-		Trace.Printf(">")
+		trace.Printf(">")
 		go esperarDownloads(wg)
 		serveHttp(api, diretorioDownload, portServer)
 	} else {

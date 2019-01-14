@@ -6,19 +6,19 @@ import (
 )
 
 var (
-	Trace *log.Logger
-	Info  *log.Logger
+	trace *log.Logger
+	info  *log.Logger
 )
 
-func SetUpLoggers(
+func setUpLoggers(
 	traceHandler *os.File,
 	infoHandler *os.File,
 ) {
-	Trace = log.New(traceHandler,
+	trace = log.New(traceHandler,
 		"TRACE : ",
 		log.Ltime|log.Lshortfile)
 
-	Info = log.New(infoHandler,
+	info = log.New(infoHandler,
 		"", log.Ltime)
 
 }

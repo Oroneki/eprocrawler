@@ -12,8 +12,8 @@ func apagarArquivo(path string) bool {
 	err := os.Remove(path)
 	ret := true
 	if err != nil {
-		Trace.Println("err apagarArquivo", path)
-		Trace.Println(err)
+		trace.Println("err apagarArquivo", path)
+		trace.Println(err)
 		ret = false
 		fmt.Println("Erro ao apagar ", path)
 	}
@@ -36,7 +36,7 @@ func apagarArquivos(pasta string, listacomma string) ([]string, []string) {
 	return arrayOk, arrayErrado
 }
 
-func GetBytes(key interface{}) ([]byte, error) {
+func getBytes(key interface{}) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	err := enc.Encode(key)

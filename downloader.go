@@ -8,23 +8,23 @@ import (
 	"sync"
 )
 
-type WriteCounter struct {
+type writeCounter struct {
 	Processo             string
-	chDownloadInfoReport chan DownloadInfo
+	chDownloadInfoReport chan downloadInfo
 	Bytes                uint64
 }
 
-func (wc *WriteCounter) Write(p []byte) (int, error) {
+func (wc *writeCounter) Write(p []byte) (int, error) {
 	n := len(p)
 	wc.Bytes += uint64(n)
 	wc.Report()
 	return n, nil
 }
 
-func (wc WriteCounter) Report() {
+func (wc writeCounter) Report() {
 	// Clear the line by using a character return to go back to the start and remove
 	// the remaining characters by filling it with spaces
-	wc.chDownloadInfoReport <- DownloadInfo{wc.Processo, wc.Bytes}
+	wc.chDownloadInfoReport <- downloadInfo{wc.Processo, wc.Bytes}
 	// fmt.Printf("\r%s", strings.Repeat(" ", 35))
 
 	// Return again and print current status of download
@@ -32,15 +32,15 @@ func (wc WriteCounter) Report() {
 	// fmt.Printf("\rDownloading... %v complete", wc.Bytes)
 }
 
-type DownloadPayload struct {
+type downloadPayload struct {
 	cookieStr string
 	titlePDF  string
 	dst       string
 }
 
-func DownloadPDF(dp *DownloadPayload, filepath string, ci chan DownloadInfo) string {
-	Trace.Printf("\nInicio do download: %s para %s", dp.titlePDF, dp.dst)
-	Info.Printf("\nInicio do download: %s para %s", dp.titlePDF, dp.dst)
+func downloadPDF(dp *downloadPayload, filepath string, ci chan downloadInfo) string {
+	trace.Printf("\nInicio do download: %s para %s", dp.titlePDF, dp.dst)
+	info.Printf("\nInicio do download: %s para %s", dp.titlePDF, dp.dst)
 	client := &http.Client{}
 	// Declare HTTP Method and Url
 	req, _ := http.NewRequest("GET", `https://eprocesso.suiterfb.receita.fazenda/downloadArquivo/`+dp.titlePDF, nil)
@@ -51,39 +51,42 @@ func DownloadPDF(dp *DownloadPayload, filepath string, ci chan DownloadInfo) str
 	out, _ := os.Create(filepath)
 	defer out.Close()
 
-	resp, _ := client.Do(req)
+	resp, e := client.Do(req)
+	if e != nil {
+		panic(e)
+	}
 
 	defer resp.Body.Close()
 
-	counter := &WriteCounter{dp.titlePDF, ci, 0}
+	counter := &writeCounter{dp.titlePDF, ci, 0}
 	n, err := io.Copy(out, io.TeeReader(resp.Body, counter))
 	if err != nil {
-		Info.Printf("\n\n\n :( %s miow :(\n\n\n", filepath)
-		Trace.Printf("\n\n\n :( %s miow :(\n\n\n", filepath)
+		info.Printf("\n\n\n :( %s miow :(\n\n\n", filepath)
+		trace.Printf("\n\n\n :( %s miow :(\n\n\n", filepath)
 	}
 
-	Trace.Printf("\n :) %s salvo com tamanho %v.\n", filepath, n)
+	trace.Printf("\n :) %s salvo com tamanho %v.\n", filepath, n)
 	return filepath
 
 }
 
-func Downloader(dp *DownloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan DownloadInfo) {
+func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo) {
 	// 	Trace.Printf(`
 	// +	DOWNLOAD -------------------------------------------------------------------------
 	// 		dp (DownloadPayload) 		%T -> 	%#v
 	// 		wg (WaitGroup)		%T -> 	%#v
 	// 	----------------------------------------------------------------------------------
 	// `, dp, dp, wg, wg)
-	temporario := DownloadPDF(dp, os.TempDir()+`\`+dp.titlePDF, ci)
+	temporario := downloadPDF(dp, os.TempDir()+`\`+dp.titlePDF, ci)
 	err := os.Rename(temporario, dp.dst)
 
 	if err != nil {
-		Info.Println(err)
-		Trace.Println(err)
+		info.Println(err)
+		trace.Println(err)
 		return
 	}
-	Info.Printf("\n :) %s ok!.\n", dp.dst)
-	Trace.Printf("\n :) %s ok!.\n", dp.dst)
+	info.Printf("\n :) %s ok!.\n", dp.dst)
+	trace.Printf("\n :) %s ok!.\n", dp.dst)
 	cc <- true
 	wg.Done()
 }

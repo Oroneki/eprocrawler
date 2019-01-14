@@ -7,7 +7,7 @@ import (
 	"github.com/go-ole/go-ole/oleutil"
 )
 
-func SIDAjanelaInit(api *apiConn) bool {
+func sSIDAjanelaInit(api *apiConn) bool {
 	if api.sidaIE != nil {
 		return true
 	}
@@ -27,8 +27,8 @@ func SIDAjanelaInit(api *apiConn) bool {
 	window := oleutil.MustGetProperty(document, "parentWindow").ToIDispatch()
 	time.Sleep(3000 * time.Millisecond)
 	for {
-		logado := SIDAcheckLogado(window)
-		Trace.Println("logado: ", logado)
+		logado := sSIDAcheckLogado(window)
+		trace.Println("logado: ", logado)
 		if logado {
 			break
 		}
@@ -40,67 +40,67 @@ func SIDAjanelaInit(api *apiConn) bool {
 	return true
 }
 
-func SIDAcheckLogado(ieWindow *ole.IDispatch) bool {
+func sSIDAcheckLogado(ieWindow *ole.IDispatch) bool {
 
-	Trace.Println("--------")
+	trace.Println("--------")
 	variant := oleutil.MustCallMethod(ieWindow, "eval", `window.location.pathname === "/PGFN/Milenio/PrincipalFrames.asp";`)
-	Trace.Println("--------")
+	trace.Println("--------")
 	return variant.Value().(bool)
 
 }
 
-func SIDAVaiPraConsulta(api *apiConn, processo string) string {
-	Trace.Println("--------")
+func sSIDAVaiPraConsulta(api *apiConn, processo string) string {
+	trace.Println("--------")
 	oleutil.CallMethod(api.sidaIEWindow, "Navigate", "http://www3.pgfn.fazenda/PGFN/Divida/Consulta/Inscricao/Cons11.asp")
-	Trace.Println("--------")
+	trace.Println("--------")
 	time.Sleep(50 * time.Millisecond)
-	Trace.Println("--------")
+	trace.Println("--------")
 	WaitIEWindow(api.sidaIE)
-	Trace.Println("--------")
+	trace.Println("--------")
 	for {
 		okk_, err := oleutil.CallMethod(api.sidaIEWindow, "eval", `window.location.pathname === "/PGFN/Divida/Consulta/Inscricao/Cons11.asp";`)
 		if err != nil {
 			time.Sleep(500 * time.Millisecond)
-			Trace.Println("- :( -")
+			trace.Println("- :( -")
 			continue
 		}
 		okk := okk_.Value().(bool)
-		Trace.Println("-")
-		Trace.Println("okk: ", okk)
+		trace.Println("-")
+		trace.Println("okk: ", okk)
 		if okk {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	Trace.Println("\nCarregou consulta pro processo: ", processo, "\n")
-	Trace.Println("--------")
+	trace.Println("\nCarregou consulta pro processo: ", processo)
+	trace.Println("--------")
 
 	oleutil.MustCallMethod(api.sidaIEWindow, "eval", `window.document.getElementById("op_numProcAntigo").click();`)
-	Trace.Println("--------")
+	trace.Println("--------")
 	time.Sleep(100 * time.Millisecond)
-	Trace.Println("--------")
+	trace.Println("--------")
 	oleutil.MustCallMethod(api.sidaIEWindow, "eval", `window.document.getElementsByTagName("input")[12].value = "`+processo+`";`)
-	Trace.Println("--------")
+	trace.Println("--------")
 
 	valAntes := oleutil.MustCallMethod(api.sidaIEWindow, "eval", `window.document.getElementsByTagName("input")[20].value;`).Value().(string)
-	Trace.Println("--------")
+	trace.Println("--------")
 
-	Trace.Println("\nVal antes: ", valAntes, "\n")
-	Trace.Println("--------")
+	trace.Println("\nVal antes: ", valAntes)
+	trace.Println("--------")
 
 	oleutil.MustCallMethod(api.sidaIEWindow, "eval", `window.document.getElementsByName("ok")[0].click();`)
-	Trace.Println("--------")
+	trace.Println("--------")
 	time.Sleep(50 * time.Millisecond)
-	Trace.Println("--------")
+	trace.Println("--------")
 	WaitIEWindow(api.sidaIE)
-	Trace.Println("--------")
+	trace.Println("--------")
 
 	keyValues := oleutil.MustCallMethod(api.sidaIEWindow, "eval", SidaKeyValuesConsulta).Value().(string)
-	Trace.Println("\n\nResultado:\n", keyValues)
+	trace.Println("\n\nResultado:\n", keyValues)
 
 	valDepois, err := oleutil.CallMethod(api.sidaIEWindow, "eval", `window.document.getElementsByTagName("input")[20].value;`)
 	if err != nil {
-		Trace.Println("\n\nERRO NO 'VAL DEPOIS'... ISSO EH BOM ???:\n")
+		trace.Println("\n\nERRO NO 'VAL DEPOIS'... ISSO EH BOM ???")
 		return keyValues
 	}
 	valDepois_ := valDepois.Value().(string)
@@ -110,14 +110,14 @@ func SIDAVaiPraConsulta(api *apiConn, processo string) string {
 func WaitIEWindow(ie *ole.IDispatch) {
 	for {
 		time.Sleep(250 * time.Millisecond)
-		Trace.Println("-")
+		trace.Println("-")
 		try, err := oleutil.GetProperty(ie, "Busy")
 		if err != nil {
-			Trace.Println("ERRO! waitWindow - não pegou a propriedade Busy")
-			Trace.Printf("erro: %s", err)
+			trace.Println("ERRO! waitWindow - não pegou a propriedade Busy")
+			trace.Printf("erro: %s", err)
 		}
 		if try.Val == 0 {
-			Trace.Println("Busy é 0 :)")
+			trace.Println("Busy é 0 :)")
 			break
 		}
 	}
