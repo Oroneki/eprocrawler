@@ -26,6 +26,9 @@ func waitForConditionOnIEWindow(ie *ole.IDispatch, condition string) {
 			break
 		}
 		// time.Sleep(100 * time.Millisecond)
+		if time.Since(init) > 90*time.Second {
+			panic("Timeout! waitForConditionOnIEWindow")
+		}
 	}
 	final := time.Since(init)
 	time.Sleep(100 * time.Millisecond)

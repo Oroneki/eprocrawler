@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	ole "github.com/go-ole/go-ole"
@@ -49,7 +50,7 @@ func sSIDAcheckLogado(ieWindow *ole.IDispatch) bool {
 
 }
 
-func sSIDAVaiPraConsulta(api *apiConn, processo string) string {
+func sidaVaiPraPaginaResultadoConsulta(api *apiConn, processo string) bool {
 	trace.Println("--------")
 	oleutil.CallMethod(api.sidaIEWindow, "Navigate", "http://www3.pgfn.fazenda/PGFN/Divida/Consulta/Inscricao/Cons11.asp")
 	trace.Println("--------")
@@ -75,6 +76,7 @@ func sSIDAVaiPraConsulta(api *apiConn, processo string) string {
 	trace.Println("\nCarregou consulta pro processo: ", processo)
 	trace.Println("--------")
 
+	time.Sleep(10 * time.Millisecond)
 	oleutil.MustCallMethod(api.sidaIEWindow, "eval", `window.document.getElementById("op_numProcAntigo").click();`)
 	trace.Println("--------")
 	time.Sleep(100 * time.Millisecond)
@@ -93,18 +95,70 @@ func sSIDAVaiPraConsulta(api *apiConn, processo string) string {
 	time.Sleep(50 * time.Millisecond)
 	trace.Println("--------")
 	WaitIEWindow(api.sidaIE)
-	trace.Println("--------")
+	trace.Println("  injectar codigos...")
 
+	evalOnIEWindowNoLock(api, jsPolyfills)
+	trace.Println("  jsPolyfills...")
+	evalOnIEWindowNoLock(api, jsPolyfillShimInjectScript)
+	trace.Println("  jsPolyfillShimInjectScript...")
+	WaitIEWindow(api.sidaIE)
+	trace.Println("  evaluou busy...")
+	waitForConditionOnIEWindow(api.sidaIEWindow, `(function () {
+		try {
+		  var el1 = Array.from(document.querySelectorAll('tr').filter(function (i) {
+			return i.innerText && i.innerText.length > 1;
+		  })).map(function (a) {
+			return a.innerText;
+		  });
+		  var el2 = JSON.stringify(el1);
+		} catch (e) {
+		  return false;
+		}
+	  
+		return true;
+	  })();`)
+
+	trace.Println("  RETORNOU DA FUNCAO sidaVaiPraPaginaResultadoConsulta :)")
+	return true
+
+}
+
+func evalOnIEWindowNoLock(api *apiConn, pld string) {
+	_, err := oleutil.CallMethod(
+		api.sidaIEWindow,
+		"eval",
+		pld,
+	)
+	if err != nil {
+		trace.Println("sida opa... erro no eval.")
+
+	}
+
+}
+
+func grabConsultaInfo(api *apiConn, processo string) *grabConsultaProcessoSidaResult {
 	keyValues := oleutil.MustCallMethod(api.sidaIEWindow, "eval", SidaKeyValuesConsulta).Value().(string)
-	trace.Println("\n\nResultado:\n", keyValues)
+	trace.Println("   grabConsultaInfo:\n", keyValues)
 
 	valDepois, err := oleutil.CallMethod(api.sidaIEWindow, "eval", `window.document.getElementsByTagName("input")[20].value;`)
 	if err != nil {
-		trace.Println("\n\nERRO NO 'VAL DEPOIS'... ISSO EH BOM ???")
-		return keyValues
+		trace.Println("     não achou o input... ta em outra pagina. (1 insc)")
+		return &grabConsultaProcessoSidaResult{
+			Json: keyValues,
+			quantidadeIdentificador: UMA_INSCRICAO,
+		}
 	}
-	valDepois_ := valDepois.Value().(string)
-	return keyValues + "_CAMPO_20_||>" + valDepois_ + "\n"
+	valDepoisSS := valDepois.Value().(string)
+	trace.Printf("    valDEpoisSS : %s", valDepoisSS)
+	if strings.Contains(valDepoisSS, "FORAM LOCALIZADAS") {
+		return &grabConsultaProcessoSidaResult{
+			Json: "",
+			quantidadeIdentificador: VARIAS_INSCRICOES,
+		}
+	} else {
+		return &grabConsultaProcessoSidaResult{Json: "",
+			quantidadeIdentificador: NENHUMA_INSCRICAO}
+	}
 }
 
 func WaitIEWindow(ie *ole.IDispatch) {

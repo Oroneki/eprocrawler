@@ -146,14 +146,15 @@ func (api *apiConn) SIDAInit() bool {
 	return resposta.(bool)
 }
 
-func (api *apiConn) SIDAConsultaProcesso(processo string) string {
+func (api *apiConn) SIDAConsultaProcesso(processo string) *grabConsultaProcessoSidaResult {
 	trace.Println("x SIDAInit")
 	api.perguntaCh <- mensagem{
 		tipo:    "SIDA_CONSULTA_PROCESSO_0",
 		payload: processo,
 	}
 	resposta := <-api.respostaCh
-	return resposta.(string)
+	return resposta.(*grabConsultaProcessoSidaResult)
+
 }
 
 func (api *apiConn) clicaParaGerarPDF(janID string, processo *Processo) bool {
@@ -784,7 +785,11 @@ func (api *apiConn) olePoolInicio() {
 		case "SIDA_CONSULTA_PROCESSO_0":
 			trace.Println("x Iniciando Consulta por Processo no SIDA...")
 			api.mutex.Lock()
-			api.respostaCh <- sSIDAVaiPraConsulta(api, mensagem.payload.(string))
+			sidaVaiPraPaginaResultadoConsulta(api, mensagem.payload.(string))
+			// api.respostaCh <- "grabConsultaInfo(api)"
+			respostaGrab := grabConsultaInfo(api, mensagem.payload.(string))
+			trace.Printf("respostaGrab : %s", respostaGrab)
+			api.respostaCh <- respostaGrab
 			api.mutex.Unlock()
 
 		case "WAIT_FOR_CONDITION_ON_SIDA_WINDOW":
