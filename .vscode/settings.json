@@ -1,4 +1,26 @@
 {
-    "go.inferGopath": true,
-    "go.goroot": "C:\\Go"
+    "go.buildOnSave": "off",
+    "go.vetOnSave": "off",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
+    "go.lintTool": "revive",
+    "go.lintFlags": [
+        "-config=${workspaceFolder}/revive.conf.toml"
+    ],
+    "go.testFlags": [
+        "-v",
+    ],
+    "go.formatTool": "goimports",
+    "go.autocompleteUnimportedPackages": true,
+    "go.gocodeAutoBuild": false,
+    "go.useLanguageServer": true,
+    "go.alternateTools": {
+        "gopls": "bingo"
+    },
+    "go.languageServerExperimentalFeatures": {
+        "format": true,
+        "autoComplete": true,
+    },
 }

@@ -267,7 +267,8 @@ func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 
 			api.SIDAInit()
 			s := make([]map[string]interface{}, 0)
-			for _, processo := range arrProcs {
+			for y, processo := range arrProcs {
+				info.Printf("Baixando processo %v (%d de %d)", processo, y, len(arrProcs))
 
 				m := make(map[string]interface{})
 				trace.Printf(" Pesquisar processo : %s  ", processo)
@@ -463,3 +464,4 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 // 		}
 // 	}
 // }
+
