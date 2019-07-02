@@ -203,8 +203,8 @@ func DownloadReporter(ch chan downloadInfo) {
 			tot += dados[k]
 		}
 		fmt.Printf("\r                                                                      ")
-		fmt.Printf("\r%d [ %s ]", tot, pld.processo)
-		// time.Sleep(200 * time.Millisecond)
+		fmt.Printf("\r %16d [ %-20s ]", tot, pld.processo)
+		time.Sleep(10 * time.Millisecond)
 
 	}
 	trace.Println("Encerrando DownloadReporter")

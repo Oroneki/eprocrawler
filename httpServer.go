@@ -213,7 +213,6 @@ func handleInject(api *apiConn) http.HandlerFunc {
 					http.StatusInternalServerError)
 			}
 			trace.Println("handleInject")
-
 			res := api.evalOnWindow(body)
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
