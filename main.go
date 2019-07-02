@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+
 	// "strings"
 	"time"
 	// "github.com/atotto/clipboard"
@@ -123,7 +124,7 @@ func esperarDownloads(wg *sync.WaitGroup) {
 	trace.Println(` === Todos os processos enviados para download === apos o wg.Wait()`)
 }
 
-func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas int, numDownloaders int, api *apiConn, wg *sync.WaitGroup) {
+func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas int, numDownloaders int, api *apiConn, wg *sync.WaitGroup, wsWrite chan WebSocketMessage) {
 	// runtime.LockOSThread()
 
 	trace.Printf("-")
@@ -173,12 +174,12 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 	trace.Printf("%d processos encontrados na página", num_procs)
 	trace.Printf("-")
 
-	go DownloadReporter(chDownloadInfo)
+	go DownloadReporter(chDownloadInfo, wsWrite)
 
 	for index := 0; index < num_procs; index++ {
 		<-chDownloadComplete
-		info.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
-		trace.Printf("%d download(s) completo(s) de %d", index+1, num_procs)
+		info.Printf("\n%d download(s) completo(s) de %d", index+1, num_procs)
+		trace.Printf("\n%d download(s) completo(s) de %d", index+1, num_procs)
 	}
 
 	close(chP)
@@ -190,7 +191,7 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 
 }
 
-func DownloadReporter(ch chan downloadInfo) {
+func DownloadReporter(ch chan downloadInfo, wsWrite chan WebSocketMessage) {
 	dados := make(map[string]uint64)
 	for {
 		pld, more := <-ch
@@ -202,9 +203,17 @@ func DownloadReporter(ch chan downloadInfo) {
 		for k := range dados {
 			tot += dados[k]
 		}
-		fmt.Printf("\r                                                                      ")
-		fmt.Printf("\r %16d [ %-20s ]", tot, pld.processo)
-		time.Sleep(10 * time.Millisecond)
+		if pld.bytes%15 == 0 {
+			fmt.Printf("\r                                                                      ")
+			fmt.Printf("\r%16d [ %-20s ]", tot, pld.processo)
+			go func() {
+				wsWrite <- WebSocketMessage{
+					Tipo:    "D_REPORTER",
+					Payload: "_",
+				}
+			}()
+
+		}
 
 	}
 	trace.Println("Encerrando DownloadReporter")
@@ -274,15 +283,25 @@ injectCode -->  %v
 	time.Sleep(100 * time.Millisecond)
 	wg := &sync.WaitGroup{}
 
+	WSChannelWrite := make(chan WebSocketMessage)
+	go func() {
+		for {
+			time.Sleep(5 * time.Second)
+			WSChannelWrite <- WebSocketMessage{
+				Tipo:    "im_alive",
+				Payload: "",
+			}
+		}
+	}()
 	if baixarProcessos {
 		trace.Printf(">")
-		go baixarProcessosDoEprocessoPrincipal(diretorioDownload, num_janelinhas, num_downloaders, api, wg)
+		go baixarProcessosDoEprocessoPrincipal(diretorioDownload, num_janelinhas, num_downloaders, api, wg, WSChannelWrite)
 	}
 
 	if serveData {
 		trace.Printf(">")
 		go esperarDownloads(wg)
-		serveHttp(api, diretorioDownload, portServer)
+		serveHttp(api, diretorioDownload, portServer, WSChannelWrite)
 	} else {
 		time.Sleep(4 * time.Second)
 		esperarDownloads(wg)

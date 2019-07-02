@@ -85,8 +85,8 @@ func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan d
 		trace.Println(err)
 		return
 	}
-	info.Printf("\n :) %s ok!.\n", dp.dst)
-	trace.Printf("\n :) %s ok!.\n", dp.dst)
+	info.Printf("\n\n:) %s ok!.\n", dp.dst)
+	trace.Printf("\n\n:) %s ok!.\n", dp.dst)
 	cc <- true
 	wg.Done()
 }

@@ -7,7 +7,7 @@
     },
     "go.lintTool": "revive",
     "go.lintFlags": [
-        "-config=${workspaceFolder}/revive.conf.toml"
+        "-config=${workspaceFolder}\\revive.conf.toml"
     ],
     "go.testFlags": [
         "-v",
@@ -17,7 +17,7 @@
     "go.gocodeAutoBuild": false,
     "go.useLanguageServer": true,
     "go.alternateTools": {
-        "gopls": "bingo"
+        "gopls": "gopls"
     },
     "go.languageServerExperimentalFeatures": {
         "format": true,

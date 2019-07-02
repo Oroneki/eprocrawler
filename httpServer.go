@@ -7,8 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strings"
-
+	"fmt"
 	"github.com/gorilla/websocket"
+
 )
 
 type eprocessoData struct {
@@ -26,23 +27,44 @@ type WebSocketMessage struct {
 	Payload string `json:"payload"`
 }
 
-var upgrader = websocket.Upgrader{}
+func ignoreThisShit(r *http.Request) bool{
+	return true
+}
 
-// func WebSocketHandle(api *apiConn) http.HandlerFunc {
-// 	trace.Print("WS FUNC: montou")
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		trace.Print("WS FUNC: entrou")
-// 		// (w).Header().Set("Access-Control-Allow-Origin", "*")
-// 		// (w).Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-// 		// (w).Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
-// 		c, err := upgrader.Upgrade(w, r, nil)
-// 		if err != nil {
-// 			trace.Print("err upgrade:", err)
-// 			return
-// 		}
-// 		go websocketGoroutine(api, c)
-// 	}
-// }
+var upgrader = websocket.Upgrader{
+    ReadBufferSize: 1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: ignoreThisShit,
+}
+
+
+func WebSocketHandler(chWrite chan WebSocketMessage) http.HandlerFunc { 
+	
+	
+	return func(w http.ResponseWriter, r *http.Request) {
+		trace.Printf("WS ENDPOINT");
+
+
+		conn, err := upgrader.Upgrade(w, r, nil)
+	// defer conn.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	for msg := range chWrite {		
+		info.Printf("msg WS received");
+		jsonMsg, errr := json.Marshal(msg);
+		if errr != nil {
+			info.Printf("msg ERROR WS");			
+			trace.Printf("msg ERROR WS \n%#v \n%#v", errr, msg);
+			continue
+		}
+		conn.WriteMessage(websocket.TextMessage, jsonMsg);
+	}
+
+
+}
+}
 
 func withData(data *eprocessoData) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -244,6 +266,8 @@ func handleInjectSidaWindow(api *apiConn) http.HandlerFunc {
 	}
 }
 
+
+
 func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		trace.Println("endpoint reached: pesquisaSidaVariosProcessos")
@@ -392,7 +416,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func serveHttp(api *apiConn, pdfPath string, port string) {
+func serveHttp(api *apiConn, pdfPath string, port string, wsWriteChan chan WebSocketMessage) {
 	trace.Printf("\n-x")
 	fs := http.FileServer(http.Dir("front_build/static/"))
 	trace.Printf("\n-x")
@@ -412,7 +436,7 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 	http.HandleFunc("/eval_sida_window_js", handleInjectSidaWindow(api))
 	http.HandleFunc("/abre_sida_window", abreSidaWindow(api))
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
-	// http.HandleFunc("/ws", WebSocketHandle(api))                                         // set router
+	http.HandleFunc("/ws", WebSocketHandler(wsWriteChan))//  set router
 	info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
 	trace.Printf("\n-x")
 	err := http.ListenAndServe(":"+port, nil) // set listen port
@@ -421,46 +445,3 @@ func serveHttp(api *apiConn, pdfPath string, port string) {
 		log.Fatal("ListenAndServe: ", err)
 	}
 }
-
-// func websocketGoroutine(api *apiConn, c *websocket.Conn) {
-// 	defer c.Close()
-// 	for {
-
-// 		msgType, msg, err := c.ReadMessage()
-// 		if err != nil {
-// 			trace.Println("err read:", err)
-// 			break
-// 		}
-// 		trace.Printf("raw msgType: %v", msgType)
-// 		trace.Printf("raw msg: %v", msg)
-// 		trace.Printf("pra string msg : %s   ", msg)
-
-// 		var obj WebSocketMessage
-// 		er := json.Unmarshal(msg, &obj)
-// 		if er != nil {
-// 			trace.Printf("ERRO UNMARSHALL : %s   ", er)
-// 		}
-
-// 		trace.Printf("pra string msg : %v   ", obj)
-// 		switch obj.Tipo {
-// 		case "sida_pesquisa":
-// 			trace.Print("sida pesquisa")
-// 			processosArr := strings.Split(obj.Payload, ",")
-// 			api.SIDAInit()
-// 			for _, processo := range processosArr {
-// 				resp := api.SIDAConsultaProcesso(processo)
-// 				resp = resp + "processo||>" + processo + "\n"
-// 				jj, err := json.Marshal(WebSocketMessage{Tipo: "sida_resp", Payload: resp})
-// 				if err != nil {
-// 					trace.Printf("ERRO MARSHALL : %s   ", err)
-// 				}
-// 				e := c.WriteMessage(msgType, jj)
-// 				if e != nil {
-// 					trace.Println("err write:", e)
-// 					break
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-
