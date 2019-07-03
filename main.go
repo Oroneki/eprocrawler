@@ -107,11 +107,11 @@ func (j *janelinha) init(dst string) {
 	trace.Printf("%s - die!", j.id)
 }
 
-func startDownloader(id int, ch chan *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo) {
+func startDownloader(id int, ch chan *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo, wsWriteChannel chan WebSocketMessage) {
 	trace.Printf("\nIniciando Downloader %d ", id)
 	for payload := range ch {
 		trace.Printf("\nDownloader %d recebeu download %s", id, payload.titlePDF)
-		downloader(payload, wg, cc, ci)
+		downloader(payload, wg, cc, ci, wsWriteChannel)
 	}
 }
 
@@ -158,7 +158,7 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 	}
 	trace.Printf("-")
 	for i := 0; i < numDownloaders; i++ {
-		go startDownloader(i, chDownload, wg, chDownloadComplete, chDownloadInfo)
+		go startDownloader(i, chDownload, wg, chDownloadComplete, chDownloadInfo, wsWrite)
 	}
 	trace.Printf("-")
 	if numJanelinhas > 10 {
@@ -203,13 +203,15 @@ func DownloadReporter(ch chan downloadInfo, wsWrite chan WebSocketMessage) {
 		for k := range dados {
 			tot += dados[k]
 		}
-		if pld.bytes%15 == 0 {
-			fmt.Printf("\r                                                                      ")
-			fmt.Printf("\r%16d [ %-20s ]", tot, pld.processo)
+		if pld.bytes%2 == 0 {
+			if pld.bytes%20 == 0 {
+				fmt.Printf("\r                                                                      ")
+				fmt.Printf("\r%16d [ %-20s ]", tot, pld.processo)
+			}
 			go func() {
 				wsWrite <- WebSocketMessage{
 					Tipo:    "D_REPORTER",
-					Payload: "_",
+					Payload: fmt.Sprintf("%s|%d", pld.processo, pld.bytes),
 				}
 			}()
 

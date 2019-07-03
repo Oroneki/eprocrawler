@@ -1,6 +1,5 @@
 jsonstr.json
-main.exe
-main.exe~
+*.exe
 log.log
 sourcecode.html
 bin

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -66,11 +67,12 @@ func downloadPDF(dp *downloadPayload, filepath string, ci chan downloadInfo) str
 	}
 
 	trace.Printf("\n :) %s salvo com tamanho %v.\n", filepath, n)
+
 	return filepath
 
 }
 
-func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo) {
+func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo, wsWriteChannel chan WebSocketMessage) {
 	// 	Trace.Printf(`
 	// +	DOWNLOAD -------------------------------------------------------------------------
 	// 		dp (DownloadPayload) 		%T -> 	%#v
@@ -88,6 +90,10 @@ func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan d
 	info.Printf("\n\n:) %s ok!.\n", dp.dst)
 	trace.Printf("\n\n:) %s ok!.\n", dp.dst)
 	cc <- true
+	wsWriteChannel <- WebSocketMessage{
+		Tipo:    "DOWNLOAD_FINISHED",
+		Payload: fmt.Sprintf("%s|%s", dp.titlePDF, dp.dst),
+	}
 	wg.Done()
 }
 
