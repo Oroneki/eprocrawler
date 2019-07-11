@@ -26,15 +26,16 @@ const (
 )
 
 type apiConn struct {
-	linksMap     map[int]*ole.IDispatch
-	mutex        *sync.Mutex
-	perguntaCh   chan mensagem
-	respostaCh   chan interface{}
-	window       *ole.IDispatch
-	windowJsObj  *ole.IDispatch
-	windowObj    *ole.IDispatch
-	sidaIE       *ole.IDispatch
-	sidaIEWindow *ole.IDispatch
+	linksMap        map[int]*ole.IDispatch
+	mutex           *sync.Mutex
+	perguntaCh      chan mensagem
+	respostaCh      chan interface{}
+	window          *ole.IDispatch
+	windowJsObj     *ole.IDispatch
+	windowObj       *ole.IDispatch
+	sidaIE          *ole.IDispatch
+	sidaIEWindow    *ole.IDispatch
+	isOutsideLocked bool
 }
 
 type Processo struct {
@@ -106,6 +107,17 @@ func (api *apiConn) patchWinPrincipal() bool {
 	return resposta.(bool)
 }
 
+func (api *apiConn) getRawStringInfoFromProcessoJanelinha(janId string) string {
+	trace.Printf("x\ngetRawStringInfoFromProcessoJanelinha JANELINHA_INFO jan: %s", janId)
+	api.perguntaCh <- mensagem{
+		tipo:    "GET_STRING_FROM_PROCESSO_JANELINHA",
+		payload: janId,
+	}
+	resposta := <-api.respostaCh
+	trace.Printf("x getRawStringInfoFromProcessoJanelinha - resposta enviada, JANELINHA_INFO: %s", resposta.(string))
+	return resposta.(string)
+}
+
 func (api *apiConn) abreProcesso(janID string, processo *Processo) bool {
 	trace.Println("x")
 	api.perguntaCh <- mensagem{
@@ -134,6 +146,21 @@ func (api *apiConn) paginaProcessoPatcheVaiProDownload(janID string, processo *P
 	}
 	resposta := <-api.respostaCh
 	return resposta.(bool)
+}
+
+func (api *apiConn) toggleMutexLock() bool {
+	trace.Println("x")
+	if api.isOutsideLocked {
+		info.Println("isOutsideLocked    |  true  -> false")
+		api.mutex.Unlock()
+		api.isOutsideLocked = false
+		return false
+	}
+	info.Println("isOutsideLocked    |  false -> true ")
+	api.mutex.Lock()
+	api.isOutsideLocked = true
+	return true
+
 }
 
 func (api *apiConn) SIDAInit() bool {
@@ -835,6 +862,26 @@ func (api *apiConn) olePoolInicio() {
 			}
 			api.mutex.Unlock()
 
+		case "GET_STRING_FROM_PROCESSO_JANELINHA":
+			trace.Println("x GET_STRING_FROM_PROCESSO_JANELINHA")
+			scriptExecutavel := fmt.Sprintf(JSGetLinksPaginaProcessoString, mensagem.payload.(string))
+			trace.Println("x GET_STRING_FROM_PROCESSO_JANELINHA: >>>> script:\n\n", scriptExecutavel)
+			api.mutex.Lock()
+			res, err := oleutil.CallMethod(api.windowJsObj,
+				"eval",
+				scriptExecutavel,
+			)
+			if err != nil {
+				trace.Println("x ERRO NA CHAMADA - GET_STRING_FROM_PROCESSO_JANELINHA")
+				trace.Printf("x ERRO %v", err)
+				api.respostaCh <- "erro"
+				// panic(err)
+			} else {
+				trace.Printf("JANELINHA_INFO [%s] low | res --> %v | %v | res.Value().(string) %s", mensagem.payload.(string), res, res.Val, res.Value().(string))
+				api.respostaCh <- res.Value().(string) // string!
+			}
+			api.mutex.Unlock()
+
 		case "SIDA_DEZAJUIZA_GRAB_WINDOW":
 			trace.Println("x")
 			api.mutex.Lock()
@@ -856,7 +903,7 @@ func (api *apiConn) olePoolInicio() {
 			var itemjanela *ole.IDispatch
 
 			for i := 0; i < valConta; i++ {
-				trace.Println("\n-------------------------\n\nitem ", i, "\n\n")
+				trace.Println("\n-------------------------\n\nitem ", i)
 				item, e := wins.CallMethod("Item", i)
 				if e != nil {
 					trace.Printf("\nitem %d miow\n--- continue ---", i)
@@ -946,6 +993,7 @@ func instantiateNewAPIConn() *apiConn {
 		nil,
 		nil,
 		nil,
+		false,
 	}
 	trace.Println("x")
 	go apInst.olePoolInicio()

@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
-	"fmt"
-	"github.com/gorilla/websocket"
 
+	"github.com/gorilla/websocket"
 )
 
 type eprocessoData struct {
@@ -27,43 +27,38 @@ type WebSocketMessage struct {
 	Payload string `json:"payload"`
 }
 
-func ignoreThisShit(r *http.Request) bool{
+func ignoreThisShit(r *http.Request) bool {
 	return true
 }
 
 var upgrader = websocket.Upgrader{
-    ReadBufferSize: 1024,
+	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: ignoreThisShit,
+	CheckOrigin:     ignoreThisShit,
 }
 
+func WebSocketHandler(chWrite chan WebSocketMessage) http.HandlerFunc {
 
-func WebSocketHandler(chWrite chan WebSocketMessage) http.HandlerFunc { 
-	
-	
 	return func(w http.ResponseWriter, r *http.Request) {
-		trace.Printf("WS ENDPOINT");
-
+		trace.Printf("WS ENDPOINT")
 
 		conn, err := upgrader.Upgrade(w, r, nil)
-	// defer conn.Close()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	for msg := range chWrite {		
-		info.Printf("msg WS received");
-		jsonMsg, errr := json.Marshal(msg);
-		if errr != nil {
-			info.Printf("msg ERROR WS");			
-			trace.Printf("msg ERROR WS \n%#v \n%#v", errr, msg);
-			continue
+		// defer conn.Close()
+		if err != nil {
+			fmt.Println(err)
+			return
 		}
-		conn.WriteMessage(websocket.TextMessage, jsonMsg);
+		for msg := range chWrite {			
+			jsonMsg, errr := json.Marshal(msg)
+			if errr != nil {
+				info.Printf("msg ERROR WS")
+				trace.Printf("msg ERROR WS \n%#v \n%#v", errr, msg)
+				continue
+			}
+			conn.WriteMessage(websocket.TextMessage, jsonMsg)
+		}
+
 	}
-
-
-}
 }
 
 func withData(data *eprocessoData) http.HandlerFunc {
@@ -229,7 +224,7 @@ func handleInject(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			body, err := ioutil.ReadAll(r.Body)
-			trace.Printf("handleInject request info: \n%s", &r)
+			trace.Printf("handleInject request info: \n%v", &r)
 			if err != nil {
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
@@ -249,7 +244,7 @@ func handleInjectSidaWindow(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			body, err := ioutil.ReadAll(r.Body)
-			trace.Printf("handleInject request info: \n%s", &r)
+			trace.Printf("handleInject request info: \n%v", &r)
 			if err != nil {
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
@@ -266,7 +261,23 @@ func handleInjectSidaWindow(api *apiConn) http.HandlerFunc {
 	}
 }
 
-
+func handleToggleScrapDownloads(api *apiConn) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			// logic
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			isLocked := api.toggleMutexLock()
+			if isLocked {
+				w.Write([]byte("{\"isLocked\": 1}"))
+			} else {
+				w.Write([]byte("{\"isLocked\": 0}"))
+			}
+		} else {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		}
+	}
+}
 
 func pesquisaSidaVariosProcessos(api *apiConn) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -419,8 +430,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 func serveHttp(api *apiConn, pdfPath string, port string, wsWriteChan chan WebSocketMessage) {
 	trace.Printf("\n-x")
 	fs := http.FileServer(http.Dir("front_build/static/"))
+	sw := http.FileServer(http.Dir("front_build/sw/"))
 	trace.Printf("\n-x")
 	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	http.Handle("/sw/", http.StripPrefix("/sw/", sw))
 	trace.Printf("\n-File Server")
 	fsPdf := http.FileServer(http.Dir(pdfPath))
 	trace.Printf("\n-x")
@@ -436,7 +449,8 @@ func serveHttp(api *apiConn, pdfPath string, port string, wsWriteChan chan WebSo
 	http.HandleFunc("/eval_sida_window_js", handleInjectSidaWindow(api))
 	http.HandleFunc("/abre_sida_window", abreSidaWindow(api))
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
-	http.HandleFunc("/ws", WebSocketHandler(wsWriteChan))//  set router
+	http.HandleFunc("/toggle_lock", handleToggleScrapDownloads(api))                     // set router
+	http.HandleFunc("/ws", WebSocketHandler(wsWriteChan))                                //  set router
 	info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
 	trace.Printf("\n-x")
 	err := http.ListenAndServe(":"+port, nil) // set listen port

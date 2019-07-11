@@ -787,6 +787,8 @@ return json;
 	
 	`
 
+	JSGetLinksPaginaProcessoString = `(function(){ return Array.from(window.oro_obj["%s"].document.getElementsByTagName("li")).map(function(li) {return li.getElementsByTagName("a").length > 0 && li.getElementsByTagName("a")[0]}).map(function(obj){return [obj && obj.innerText, obj && obj.onclick && obj.onclick.toString(), obj && obj.onmouseover && obj.onmouseover.toString()].join("@@@@@")}).join("\n\n@@@@@@@@@@\n");})();`
+
 	jsSidaGetInscInfo = `
 	var allInfo__INJECTED = document.querySelectorAll('td').map(function (t) {
     var isDivisor = Array.from(t.children).map(function (n) {

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	// "strings"
+
 	"time"
 	// "github.com/atotto/clipboard"
 	// "github.com/scjalliance/comshim"
@@ -32,6 +33,8 @@ type janelinha struct {
 	entradaProcessos <-chan *Processo
 	waitGroup        *sync.WaitGroup
 	downloadChannel  chan *downloadPayload
+	atrasoSeconds    int64
+	wsChannel        chan WebSocketMessage
 }
 
 type downloadInfo struct {
@@ -44,12 +47,26 @@ func (j *janelinha) init(dst string) {
 	// runtime.LockOSThread()
 	trace.Printf("\n Iniciando Janelinha %v", j.id)
 	for processo := range j.entradaProcessos {
+		j.wsChannel <- WebSocketMessage{
+			Tipo:    "JANELINHA_EVENT",
+			Payload: fmt.Sprintf("%s|%s|RECEBEU|1", j.id, processo.numStrImpuro),
+		}
 		filepath := processoPath(dst, processo.numStrImpuro)
 		trace.Printf("\n------\nJanelinha %v com processo %v (%s)", j.id, processo.numStrImpuro, filepath)
 		if _, err := os.Stat(filepath); os.IsNotExist(err) {
 			trace.Printf("\nBaixar: %s", filepath)
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|VAI_ABRIR|2", j.id, processo.numStrImpuro),
+			}
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
 			j.oleAPI.abreProcesso(j.id, processo)
-			time.Sleep(900 * time.Millisecond)
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|ABRIU|3", j.id, processo.numStrImpuro),
+			}
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
+			time.Sleep(250 * time.Millisecond)
 			trace.Printf(" %v - %v-0", j.id, processo.numStrImpuro)
 			for {
 				testa := j.oleAPI.paginaProcessoCarregou(j.id, processo)
@@ -57,14 +74,34 @@ func (j *janelinha) init(dst string) {
 					// fmt.Printf(" %v - %v-1-A", j.id, processo.numStrImpuro)
 					break
 				}
-				time.Sleep(500 * time.Millisecond)
-				// fmt.Printf(" %v - %v-1", j.id, processo.numStrImpuro)
+				time.Sleep(8 * time.Second)
+				// TODO : melhorar o testa carregou...
 			}
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|CARREGOU_PROCESSO|4", j.id, processo.numStrImpuro),
+			}
+			trace.Println("\n\n\n ------------------ JANELINHA_INFO -------------------")
+			rawStringInfo := j.oleAPI.getRawStringInfoFromProcessoJanelinha(j.id)
+			if j.atrasoSeconds > 0 {
+				info.Println("rawString returned - time to pause")
+				time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
+			}
+			janelinhasInfo := parseJanelinhaInfo(rawStringInfo)
+			trace.Printf("\n JANELINHA_INFO parseJanelinhaInfo -->  \n%s\n%#v\n\n", j.id, janelinhasInfo)
+			formatAndSendToWebsocket(janelinhasInfo, processo.numStrImpuro, j.wsChannel)
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
 			trace.Printf("\n Carregou ¨¨¨¨ %s ¨¨¨¨ %v", j.id, processo.numStrImpuro)
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(250 * time.Millisecond)
 			// time.Sleep(2 * time.Second)
 			j.oleAPI.paginaProcessoPatcheVaiProDownload(j.id, processo)
-			time.Sleep(500 * time.Millisecond)
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|CLICOULINK_PROCESSO|5", j.id, processo.numStrImpuro),
+			}
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
+
+			time.Sleep(250 * time.Millisecond)
 			for {
 				testa := j.oleAPI.paginaDocumentosCarregou(j.id, processo)
 				// fmt.Printf(" %v - %v-2", j.id, processo.numStrImpuro)
@@ -74,9 +111,20 @@ func (j *janelinha) init(dst string) {
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|CARREGOU_DOCS|6", j.id, processo.numStrImpuro),
+			}
 			trace.Printf("\n Carregou+++ ¨¨¨¨ %s ¨¨¨¨ %v", j.id, processo.numStrImpuro)
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(250 * time.Millisecond)
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
 			j.oleAPI.clicaParaGerarPDF(j.id, processo)
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|CLICKOU_GERAR_PDF|7", j.id, processo.numStrImpuro),
+			}
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
 
 			for {
 				href := j.oleAPI.getHrefStringOrNot(j.id, processo)
@@ -92,19 +140,38 @@ func (j *janelinha) init(dst string) {
 						dst:       filepath,
 					}
 					trace.Printf("\n%s enviado ao canal", href)
+					j.wsChannel <- WebSocketMessage{
+						Tipo:    "JANELINHA_EVENT",
+						Payload: fmt.Sprintf("%s|%s|ENVIOU_PRA_DOWNLOAD|8", j.id, processo.numStrImpuro),
+					}
 					break
 				}
 				time.Sleep(500 * time.Millisecond)
 			}
 			time.Sleep(1 * time.Second)
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
 		} else {
 			trace.Printf("\nArquivo já existe: %s", filepath)
+			j.wsChannel <- WebSocketMessage{
+				Tipo:    "JANELINHA_EVENT",
+				Payload: fmt.Sprintf("%s|%s|EXISTE|0", j.id, processo.numStrImpuro),
+			}
+			time.Sleep(time.Duration(j.atrasoSeconds) * time.Second)
+
 			j.waitGroup.Done()
+		}
+		j.wsChannel <- WebSocketMessage{
+			Tipo:    "JANELINHA_EVENT",
+			Payload: fmt.Sprintf("%s|%s|FIM|9", j.id, processo.numStrImpuro),
 		}
 		trace.Printf("Fim do loop do processo %v (%s)", processo.numStrImpuro, filepath)
 
 	}
 	trace.Printf("%s - die!", j.id)
+	j.wsChannel <- WebSocketMessage{
+		Tipo:    "JANELINHA_EVENT",
+		Payload: fmt.Sprintf("%s|_|END_JANELINHA|10", j.id),
+	}
 }
 
 func startDownloader(id int, ch chan *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo, wsWriteChannel chan WebSocketMessage) {
@@ -124,7 +191,7 @@ func esperarDownloads(wg *sync.WaitGroup) {
 	trace.Println(` === Todos os processos enviados para download === apos o wg.Wait()`)
 }
 
-func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas int, numDownloaders int, api *apiConn, wg *sync.WaitGroup, wsWrite chan WebSocketMessage) {
+func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas int, numDownloaders int, api *apiConn, wg *sync.WaitGroup, wsWrite chan WebSocketMessage, atraso int64) {
 	// runtime.LockOSThread()
 
 	trace.Printf("-")
@@ -142,6 +209,7 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 -------------------------------------------------------------------------------
 `, diretorioDownload, numJanelinhas, numDownloaders)
 	trace.Printf("-")
+	time.Sleep(10 * time.Second)
 
 	chP := make(chan *Processo)
 	chDownload := make(chan *downloadPayload)
@@ -166,7 +234,7 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 	}
 	trace.Printf("-")
 	for i := 0; i < numJanelinhas; i++ {
-		jan := janelinha{nomesDeJanela[i], api, chP, wg, chDownload}
+		jan := janelinha{nomesDeJanela[i], api, chP, wg, chDownload, atraso, wsWrite}
 		go jan.init(diretorioDownload)
 	}
 	trace.Printf("-")
@@ -187,6 +255,11 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 	close(chDownloadComplete)
 	close(chDownloadInfo)
 
+	wsWrite <- WebSocketMessage{
+		Tipo:    "ALL_DOWNLOADS_FINISHED",
+		Payload: "",
+	}
+
 	info.Printf("\nFim dos downloads :)")
 
 }
@@ -203,18 +276,18 @@ func DownloadReporter(ch chan downloadInfo, wsWrite chan WebSocketMessage) {
 		for k := range dados {
 			tot += dados[k]
 		}
-		if pld.bytes%2 == 0 {
-			if pld.bytes%20 == 0 {
-				fmt.Printf("\r                                                                      ")
-				fmt.Printf("\r%16d [ %-20s ]", tot, pld.processo)
-			}
+		if pld.bytes%10 == 0 {
 			go func() {
 				wsWrite <- WebSocketMessage{
 					Tipo:    "D_REPORTER",
 					Payload: fmt.Sprintf("%s|%d", pld.processo, pld.bytes),
 				}
 			}()
-
+			if pld.bytes%50 == 0 {
+				fmt.Printf("\r                                                                      ")
+				fmt.Printf("\r%16d [ %-20s ]", tot, pld.processo)
+			}
+			
 		}
 
 	}
@@ -234,6 +307,7 @@ func main() {
 	var serveData bool
 	var sidaDesajuiza bool
 	var injectCode bool
+	var atrasoJanelinha int
 
 	trace.Printf("-")
 
@@ -241,6 +315,7 @@ func main() {
 	flag.StringVar(&portServer, "porta", "9090", `Porta do Servidor`)
 	flag.IntVar(&num_janelinhas, "janelas", 3, `Número de janelas simultâneas que devem ser abertas`)
 	flag.IntVar(&num_downloaders, "downloads", 5, `Número máximo de downloads simultâneos`)
+	flag.IntVar(&atrasoJanelinha, "atraso", 0, `Atraso da janelinha`)
 	flag.BoolVar(&baixarProcessos, "baixar", true, `Baixar Processos na Pasta Indicada em -pasta`)
 	flag.BoolVar(&serveData, "servir", false, `Servir dados`)
 	flag.BoolVar(&sidaDesajuiza, "sida_desajuiza", false, `Iniciar desajuizamento de varios`)
@@ -288,7 +363,7 @@ injectCode -->  %v
 	WSChannelWrite := make(chan WebSocketMessage)
 	go func() {
 		for {
-			time.Sleep(5 * time.Second)
+			time.Sleep(30 * time.Second)
 			WSChannelWrite <- WebSocketMessage{
 				Tipo:    "im_alive",
 				Payload: "",
@@ -297,7 +372,7 @@ injectCode -->  %v
 	}()
 	if baixarProcessos {
 		trace.Printf(">")
-		go baixarProcessosDoEprocessoPrincipal(diretorioDownload, num_janelinhas, num_downloaders, api, wg, WSChannelWrite)
+		go baixarProcessosDoEprocessoPrincipal(diretorioDownload, num_janelinhas, num_downloaders, api, wg, WSChannelWrite, int64(atrasoJanelinha))
 	}
 
 	if serveData {
