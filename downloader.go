@@ -7,7 +7,6 @@ import (
 	"os"
 	"runtime"
 	"sync"
-	"time"
 )
 
 type writeCounter struct {
@@ -92,7 +91,6 @@ func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan d
 	trace.Printf("\n\n:) %s ok!.\n", dp.dst)
 	cc <- true
 	go func(t string, d string) {
-		time.Sleep(10 * time.Second)
 		wsWriteChannel <- WebSocketMessage{
 			Tipo:    "DOWNLOAD_FINISHED",
 			Payload: fmt.Sprintf("%s|%s", t, d),

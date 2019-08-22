@@ -45,13 +45,8 @@ const (
 	};
 
 	window.clica_pra_gerar_pdf = function(TARGET) {
-		window.oro_obj[TARGET].document.getElementById("chkMetaDados").checked = false;
-		window.oro_obj[TARGET].document.getElementById("chkMetaDados").checked = false;
-		var naoPag = window.oro_obj[TARGET].document.getElementById("chkNaoPaginavel");
-		if (naoPag) {
-			naoPag.checked = false;
-			naoPag.checked = false;
-		};				
+		Array.from(window.oro_obj[TARGET].document.querySelectorAll('input[type="checkbox"]')).map(function(ic){ic.checked = false})		
+		Array.from(window.oro_obj[TARGET].document.querySelectorAll('input[type="checkbox"]')).map(function(ic){ic.checked = false})		
 		window.oro_obj[TARGET].document.getElementById("imgPdf").click();
 		window.oro_obj[TARGET].document.getElementById("imgPdf").click();
 	};

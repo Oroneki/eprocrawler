@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -48,7 +49,7 @@ func WebSocketHandler(chWrite chan WebSocketMessage) http.HandlerFunc {
 			fmt.Println(err)
 			return
 		}
-		for msg := range chWrite {			
+		for msg := range chWrite {
 			jsonMsg, errr := json.Marshal(msg)
 			if errr != nil {
 				info.Printf("msg ERROR WS")
@@ -94,6 +95,9 @@ func handlerWithInitialTemplate(api *apiConn, pasta_down string, port string) ht
 		trace.Printf("-")
 
 		data["__META__"]["pasta_download"] = pasta_down
+		names, _ := getFolderInfo(pasta_down)
+		data["__META__"]["downloaded"] = strings.Join(names, "|")
+		trace.Printf("-")
 
 		trace.Printf("\n-x")
 		t := template.Must(template.ParseFiles("front_build/index.html"))
@@ -128,6 +132,8 @@ func handlerWithInitialJson(api *apiConn, pasta_down string) http.HandlerFunc {
 		trace.Printf("-")
 
 		data["__META__"]["pasta_download"] = pasta_down
+		names, _ := getFolderInfo(pasta_down)
+		data["__META__"]["downloaded"] = strings.Join(names, "|")
 		trace.Printf("-")
 
 		bytejson, _ := json.Marshal(data)
@@ -180,6 +186,61 @@ func initSidaHandler(api *apiConn) http.HandlerFunc {
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Write([]byte("ok"))
+		} else {
+			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
+func novoSidaConsultaHandler(wsWriteChan chan WebSocketMessage) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			body, err := ioutil.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, "Error reading request body",
+					http.StatusInternalServerError)
+			}
+			trace.Printf("run node command. ARGS: %s", string(body))
+			go func(wsWriteChan chan WebSocketMessage) {
+				trace.Printf("run node command. ARGS: %s", string(body))
+				cmd := exec.Command("node", "C:\\WSL\\dev\\verifica_inscricoes\\src\\index.js", string(body))
+				e := cmd.Run()
+				if e != nil {
+					info.Println("erro no cmd run node")
+				}
+				trace.Println("command runned.")
+				wsWriteChan <- WebSocketMessage{
+					Tipo:    "FRONT_END_SIDA_REPORT",
+					Payload: "",
+				}
+				trace.Println("command runned -> FRONT_END_SIDA_REPORT ended.")
+			}(wsWriteChan)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Write([]byte("init-sida"))
+	}
+}
+
+func handleConsultaNovoSida(wsWriteChan chan WebSocketMessage) http.HandlerFunc {
+	reportTimes := 0
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" {
+			body, err := ioutil.ReadAll(r.Body)
+			trace.Printf("handleConsultaNovoSida request info: \n%v", &r)
+			if err != nil {
+				http.Error(w, "Error reading request body",
+					http.StatusInternalServerError)
+			}
+			reportTimes++
+			trace.Println("handleConsultaNovoSida: times : ", reportTimes)
+			wsWriteChan <- WebSocketMessage{
+				Tipo:    "FRONT_NOVO_SIDA_REPORT",
+				Payload: string(body),
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Write([]byte("foi"))
 		} else {
 			http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		}
@@ -448,6 +509,8 @@ func serveHttp(api *apiConn, pdfPath string, port string, wsWriteChan chan WebSo
 	http.HandleFunc("/eval_js", handleInject(api))
 	http.HandleFunc("/eval_sida_window_js", handleInjectSidaWindow(api))
 	http.HandleFunc("/abre_sida_window", abreSidaWindow(api))
+	http.HandleFunc("/novo_sida", novoSidaConsultaHandler(wsWriteChan))
+	http.HandleFunc("/novo_report", handleConsultaNovoSida(wsWriteChan))
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
 	http.HandleFunc("/toggle_lock", handleToggleScrapDownloads(api))                     // set router
 	http.HandleFunc("/ws", WebSocketHandler(wsWriteChan))                                //  set router

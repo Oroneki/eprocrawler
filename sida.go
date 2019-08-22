@@ -9,13 +9,16 @@ import (
 )
 
 func sSIDAjanelaInit(api *apiConn) bool {
+	trace.Println("bora abrir janelinha do SIDA...")
 	if api.sidaIE != nil {
+		trace.Println("já tem uma...")
 		return true
 	}
 	unknown, _ := oleutil.CreateObject("InternetExplorer.Application")
 	ie, _ := unknown.QueryInterface(ole.IID_IDispatch)
 	oleutil.CallMethod(ie, "Navigate", "http://www3.pgfn.fazenda/pgfn/milenio/aplicativos2.asp")
 	oleutil.PutProperty(ie, "Visible", true)
+	trace.Println("abriu...")
 	for {
 		time.Sleep(250 * time.Millisecond)
 		if oleutil.MustGetProperty(ie, "Busy").Val == 0 {
@@ -24,8 +27,11 @@ func sSIDAjanelaInit(api *apiConn) bool {
 		time.Sleep(100 * time.Millisecond)
 	}
 
+	trace.Println("pegar info e metadata")
 	document := oleutil.MustGetProperty(ie, "document").ToIDispatch()
 	window := oleutil.MustGetProperty(document, "parentWindow").ToIDispatch()
+	trace.Printf("\n document: %#v\n window:  %#v", document, window)
+	trace.Println("pegou info e metadata... dormir um pokim e ver se o homi loga...")
 	time.Sleep(3000 * time.Millisecond)
 	for {
 		logado := sSIDAcheckLogado(window)
@@ -44,7 +50,12 @@ func sSIDAjanelaInit(api *apiConn) bool {
 func sSIDAcheckLogado(ieWindow *ole.IDispatch) bool {
 
 	trace.Println("--------")
-	variant := oleutil.MustCallMethod(ieWindow, "eval", `window.location.pathname === "/PGFN/Milenio/PrincipalFrames.asp";`)
+	variant, err := oleutil.CallMethod(ieWindow, "eval", `window.location.pathname === "/PGFN/Milenio/PrincipalFrames.asp";`)
+	if err != nil {
+		trace.Println("miow sSIDAcheckLogado")
+		trace.Printf("recebeu: %#v", ieWindow)
+		return false
+	}
 	trace.Println("--------")
 	return variant.Value().(bool)
 
@@ -58,21 +69,23 @@ func sidaVaiPraPaginaResultadoConsulta(api *apiConn, processo string) bool {
 	trace.Println("--------")
 	WaitIEWindow(api.sidaIE)
 	trace.Println("--------")
-	for {
-		okk_, err := oleutil.CallMethod(api.sidaIEWindow, "eval", `window.location.pathname === "/PGFN/Divida/Consulta/Inscricao/Cons11.asp";`)
-		if err != nil {
-			time.Sleep(500 * time.Millisecond)
-			trace.Println("- :( -")
-			continue
-		}
-		okk := okk_.Value().(bool)
-		trace.Println("-")
-		trace.Println("okk: ", okk)
-		if okk {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	// for {
+
+	// 	okkk, err := api.sidaIEWindow.CallMethod("eval", `window.location.pathname === "/PGFN/Divida/Consulta/Inscricao/Cons11.asp";`)
+	// 	if err != nil {
+	// 		time.Sleep(900 * time.Millisecond)
+	// 		trace.Printf("\n :( - %v %#v\n", okkk, err)
+	// 		continue
+	// 	}
+	// 	okk := okkk.Value().(bool)
+	// 	trace.Println("-")
+	// 	trace.Println("okk: ", okk)
+	// 	if okk {
+	// 		break
+	// 	}
+	// 	time.Sleep(100 * time.Millisecond)
+	// }
+	time.Sleep(5 * time.Second)
 	trace.Println("\nCarregou consulta pro processo: ", processo)
 	trace.Println("--------")
 
@@ -144,7 +157,7 @@ func grabConsultaInfo(api *apiConn, processo string) *grabConsultaProcessoSidaRe
 	if err != nil {
 		trace.Println("     não achou o input... ta em outra pagina. (1 insc)")
 		return &grabConsultaProcessoSidaResult{
-			Json: keyValues,
+			Json:                    keyValues,
 			quantidadeIdentificador: UMA_INSCRICAO,
 		}
 	}
@@ -152,7 +165,7 @@ func grabConsultaInfo(api *apiConn, processo string) *grabConsultaProcessoSidaRe
 	trace.Printf("    valDEpoisSS : %s", valDepoisSS)
 	if strings.Contains(valDepoisSS, "FORAM LOCALIZADAS") {
 		return &grabConsultaProcessoSidaResult{
-			Json: "",
+			Json:                    "",
 			quantidadeIdentificador: VARIAS_INSCRICOES,
 		}
 	} else {

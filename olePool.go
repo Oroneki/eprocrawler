@@ -195,11 +195,11 @@ func (api *apiConn) clicaParaGerarPDF(janID string, processo *Processo) bool {
 }
 
 func (api *apiConn) paginaDocumentosCarregou(janID string, processo *Processo) bool {
-	// Trace.Println("x")
 	api.perguntaCh <- mensagem{
 		tipo:    "PAGINA_DOCUMENTOS_CARREGOU_0",
 		payload: &SendJanProc{janID, processo},
 	}
+	trace.Printf(" %s --> %s", janID, processo.numStrImpuro)
 	resposta := <-api.respostaCh
 	return resposta.(bool)
 }
@@ -705,9 +705,9 @@ func (api *apiConn) olePoolInicio() {
 		case "PAGINA_DOCUMENTOS_CARREGOU_0":
 			pld := mensagem.payload.(*SendJanProc)
 			janid := pld.janid
-			// processo := pld.processo
+			processo := pld.processo
 			api.mutex.Lock()
-			// Trace.Println("x")
+			trace.Printf("x carregou %s --> %#v", janid, processo)
 			res := oleutil.MustCallMethod(
 				api.windowJsObj,
 				"eval",
