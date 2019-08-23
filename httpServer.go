@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -207,6 +208,7 @@ func novoSidaConsultaHandler(wsWriteChan chan WebSocketMessage) http.HandlerFunc
 				e := cmd.Run()
 				if e != nil {
 					info.Println("erro no cmd run node")
+					trace.Printf("\nerro no cmd run node: ERROR : \n%#v\n", e)
 				}
 				trace.Println("command runned.")
 				wsWriteChan <- WebSocketMessage{
@@ -218,12 +220,12 @@ func novoSidaConsultaHandler(wsWriteChan chan WebSocketMessage) http.HandlerFunc
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Write([]byte("init-sida"))
+		w.Write([]byte("cmd-consulta"))
 	}
 }
 
 func handleConsultaNovoSida(wsWriteChan chan WebSocketMessage) http.HandlerFunc {
-	reportTimes := 0
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
 			body, err := ioutil.ReadAll(r.Body)
@@ -232,12 +234,19 @@ func handleConsultaNovoSida(wsWriteChan chan WebSocketMessage) http.HandlerFunc 
 				http.Error(w, "Error reading request body",
 					http.StatusInternalServerError)
 			}
-			reportTimes++
-			trace.Println("handleConsultaNovoSida: times : ", reportTimes)
-			wsWriteChan <- WebSocketMessage{
-				Tipo:    "FRONT_NOVO_SIDA_REPORT",
-				Payload: string(body),
-			}
+			go func(wsWriteChan chan WebSocketMessage, pld string) {
+				trace.Printf("handleConsultaNovoSida Goroutine init : %v", pld)
+				wsWriteChan <- WebSocketMessage{
+					Tipo:    "FRONT_NOVO_SIDA_REPORT",
+					Payload: pld,
+				}
+				time.Sleep(time.Millisecond * 300)
+				wsWriteChan <- WebSocketMessage{
+					Tipo:    "FRONT_NOVO_SIDA_REPORT",
+					Payload: pld,
+				}
+				trace.Printf("handleConsultaNovoSida Goroutine end : %v", pld)
+			}(wsWriteChan, string(body))
 			w.Header().Set("Content-Type", "application/json")
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Write([]byte("foi"))
