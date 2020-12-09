@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,7 +43,10 @@ type downloadPayload struct {
 func downloadPDF(dp *downloadPayload, filepath string, ci chan downloadInfo) string {
 	trace.Printf("\nInicio do download: %s para %s", dp.titlePDF, dp.dst)
 	info.Printf("\nInicio do download: %s para %s", dp.titlePDF, dp.dst)
-	client := &http.Client{}
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
 	// Declare HTTP Method and Url
 	req, _ := http.NewRequest("GET", `https://eprocesso.suiterfb.receita.fazenda/downloadArquivo/`+dp.titlePDF, nil)
 	// Set cookie
