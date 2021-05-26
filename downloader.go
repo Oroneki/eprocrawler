@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 )
 
@@ -48,7 +49,10 @@ func downloadPDF(dp *downloadPayload, filepath string, ci chan downloadInfo) str
 	}
 	client := &http.Client{Transport: tr}
 	// Declare HTTP Method and Url
-	req, _ := http.NewRequest("GET", `https://eprocesso.suiterfb.receita.fazenda/downloadArquivo/`+dp.titlePDF, nil)
+	PROCESSO := strings.Split(dp.dst, `\`)
+	DOWNLOAD_URL := `https://eprocesso.suiterfb.receita.fazenda/ControleDownloadArquivoZip.asp?psAcao=download&psNumeroProcesso=` + strings.Replace(PROCESSO[len(PROCESSO)-1], ".pdf", "", 1) + `&psNomeArquivoZip=` + dp.titlePDF
+	trace.Printf("\n\n\n\nDownload URL: '%s'\n\n\n\n", DOWNLOAD_URL)
+	req, _ := http.NewRequest("GET", DOWNLOAD_URL, nil)
 	// Set cookie
 	req.Header.Set("Cookie", dp.cookieStr)
 	// Read response
@@ -60,6 +64,7 @@ func downloadPDF(dp *downloadPayload, filepath string, ci chan downloadInfo) str
 	if e != nil {
 		panic(e)
 	}
+	trace.Printf("\nResposta: %s para %s\n   RESP %s %d [%d] \n  HEADER: %s", dp.titlePDF, dp.dst, resp.Status, resp.StatusCode, resp.ContentLength, resp.Header)
 
 	defer resp.Body.Close()
 
@@ -77,12 +82,11 @@ func downloadPDF(dp *downloadPayload, filepath string, ci chan downloadInfo) str
 }
 
 func downloader(dp *downloadPayload, wg *sync.WaitGroup, cc chan bool, ci chan downloadInfo, wsWriteChannel chan WebSocketMessage) {
-	// 	Trace.Printf(`
-	// +	DOWNLOAD -------------------------------------------------------------------------
-	// 		dp (DownloadPayload) 		%T -> 	%#v
-	// 		wg (WaitGroup)		%T -> 	%#v
-	// 	----------------------------------------------------------------------------------
-	// `, dp, dp, wg, wg)
+	trace.Printf(`
+	+	DOWNLOAD -------------------------------------------------------------------------
+			dp (DownloadPayload) 		%T -> 	%#v
+		----------------------------------------------------------------------------------
+	`, dp, dp)
 	temporario := downloadPDF(dp, os.TempDir()+`\`+dp.titlePDF, ci)
 	err := os.Rename(temporario, dp.dst)
 

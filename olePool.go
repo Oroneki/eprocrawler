@@ -88,12 +88,12 @@ func (api *apiConn) janelaEprocesso() bool {
 
 func (api *apiConn) sendProcessosDaJanelaToChannel(ch chan *Processo) int {
 	// Trace.Println("x")
-	// Trace.Printf("\nsendProcessosDaJanelaToChannel -> %#v --- %#v\n", ol, ch)
 	api.perguntaCh <- mensagem{
 		tipo:    "SENDPROCESSOSTOCHANNEL",
 		payload: &SendDC{api.window, ch},
 	}
 	resposta := <-api.respostaCh
+	trace.Printf("\nsendProcessosDaJanelaToChannel -> %#v\n", resposta)
 	return resposta.(int)
 }
 
@@ -584,7 +584,7 @@ func (api *apiConn) olePoolInicio() {
 					api.linksMap[resp] = linkaD
 					go func(p *Processo) {
 						canalDeProcessos <- p
-						trace.Printf("\n + Microrotina encaminhou processo %v pro canal.\n", p)
+						trace.Printf("\n + Microrotina encaminhou processo %v pro canal de *Processo.\n", p)
 					}(&Processo{resp, processo})
 					resp++
 				}

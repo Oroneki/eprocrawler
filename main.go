@@ -47,6 +47,7 @@ func (j *janelinha) init(dst string) {
 	// runtime.LockOSThread()
 	trace.Printf("\n Iniciando Janelinha %v", j.id)
 	for processo := range j.entradaProcessos {
+		trace.Printf("\n Proceso %s %v", j.id, processo.numStrImpuro)
 		j.wsChannel <- WebSocketMessage{
 			Tipo:    "JANELINHA_EVENT",
 			Payload: fmt.Sprintf("%s|%s|RECEBEU|1", j.id, processo.numStrImpuro),
@@ -183,6 +184,7 @@ func startDownloader(id int, ch chan *downloadPayload, wg *sync.WaitGroup, cc ch
 }
 
 func esperarDownloads(wg *sync.WaitGroup) {
+	time.Sleep(3 * time.Second)
 	wg.Wait()
 	info.Println(`
 ===========================================================================
@@ -208,8 +210,9 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 	Janelas Simultâneas: %d		Downloads Simultâneos: %d
 -------------------------------------------------------------------------------
 `, diretorioDownload, numJanelinhas, numDownloaders)
-	trace.Printf("-")
-	time.Sleep(10 * time.Second)
+	trace.Printf("Aguardar  segundos...")
+	time.Sleep(1 * time.Second)
+	trace.Printf("Aguardou ... seguir")
 
 	chP := make(chan *Processo)
 	chDownload := make(chan *downloadPayload)
@@ -220,7 +223,7 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 
 	num_procs := api.sendProcessosDaJanelaToChannel(chP)
 	wg.Add(num_procs)
-	trace.Printf("-")
+	trace.Printf("%d processos", num_procs)
 	if numDownloaders > 10 {
 		numDownloaders = 10
 	}
@@ -250,25 +253,30 @@ func baixarProcessosDoEprocessoPrincipal(diretorioDownload string, numJanelinhas
 		trace.Printf("\n%d download(s) completo(s) de %d", index+1, num_procs)
 	}
 
-	close(chP)
-	close(chDownload)
-	close(chDownloadComplete)
-	close(chDownloadInfo)
+	defer close(chP)
+	defer close(chDownload)
+	defer close(chDownloadComplete)
+	defer close(chDownloadInfo)
+
+	time.Sleep(3 * time.Second)
 
 	wsWrite <- WebSocketMessage{
 		Tipo:    "ALL_DOWNLOADS_FINISHED",
 		Payload: "",
 	}
+	wg.Wait()
 
 	info.Printf("\nFim dos downloads :)")
 
 }
 
 func DownloadReporter(ch chan downloadInfo, wsWrite chan WebSocketMessage) {
+	trace.Printf("\nFim dos downloads :)")
+
 	dados := make(map[string]uint64)
 	for {
 		pld, more := <-ch
-		if more == false {
+		if !more {
 			break
 		}
 		dados[pld.processo] = pld.bytes
@@ -287,7 +295,7 @@ func DownloadReporter(ch chan downloadInfo, wsWrite chan WebSocketMessage) {
 				fmt.Printf("\r                                                                      ")
 				fmt.Printf("\r%16d [ %-20s ]", tot, pld.processo)
 			}
-			
+
 		}
 
 	}
@@ -363,7 +371,7 @@ injectCode -->  %v
 	WSChannelWrite := make(chan WebSocketMessage)
 	go func() {
 		for {
-			time.Sleep(30 * time.Second)
+			time.Sleep(60 * time.Second)
 			WSChannelWrite <- WebSocketMessage{
 				Tipo:    "im_alive",
 				Payload: "",
@@ -380,6 +388,11 @@ injectCode -->  %v
 		go esperarDownloads(wg)
 		serveHttp(api, diretorioDownload, portServer, WSChannelWrite)
 	} else {
+		go func() {
+			for msg := range WSChannelWrite {
+				trace.Printf("drain '%s'", msg.Tipo)
+			}
+		}()
 		time.Sleep(4 * time.Second)
 		esperarDownloads(wg)
 	}

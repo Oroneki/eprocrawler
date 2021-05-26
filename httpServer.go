@@ -523,7 +523,7 @@ func serveHttp(api *apiConn, pdfPath string, port string, wsWriteChan chan WebSo
 	http.HandleFunc("/pesquisa_sida_varios_processos", pesquisaSidaVariosProcessos(api)) // set router
 	http.HandleFunc("/toggle_lock", handleToggleScrapDownloads(api))                     // set router
 	http.HandleFunc("/ws", WebSocketHandler(wsWriteChan))                                //  set router
-	info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome (ou Firefox se tiver atualizado)")
+	info.Printf("\nServir na porta " + port + "... Visite http://localhost:" + port + " no Chrome / Edge / Firefox")
 	trace.Printf("\n-x")
 	err := http.ListenAndServe(":"+port, nil) // set listen port
 	trace.Printf("\n-x")
